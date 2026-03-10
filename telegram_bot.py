@@ -125,7 +125,8 @@ def _inline_menu_crypto() -> InlineKeyboardMarkup:
 
 def _inline_menu_ia() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🖼️ Generar Imagen (DALL-E 3)", callback_data="act:imagen")],
+        [InlineKeyboardButton("🖼️ Generar Imagen",             callback_data="act:imagen"),
+         InlineKeyboardButton("🎥 Generar Video",              callback_data="act:video")],
         [InlineKeyboardButton("🔍 Búsqueda Web",               callback_data="act:busca")],
         [InlineKeyboardButton("🌐 Traducir Texto",             callback_data="act:traduce")],
         [InlineKeyboardButton("📷 Screenshot Web",             callback_data="act:screenshot")],
@@ -384,32 +385,88 @@ def _is_vision_refusal(text: str) -> bool:
 
 def _try_qwen_vision(img_b64: str, caption: str = "") -> dict | None:
     """
-    Analiza imagen con Qwen2-VL via Together AI (5 claves rotativas).
-    Qwen tiene censura minima — describe lo que realmente ve.
-    Fallback: HuggingFace Inference API con Qwen2-VL.
+    Analiza imagen sin censura — cascada:
+      1. OpenRouter — Qwen3-VL 235B / 30B / Nvidia VL (GRATIS, sin censura)
+      2. Together AI — Qwen2-VL 72B (si hay crédito)
+      3. HuggingFace — Qwen2-VL 7B (fallback)
     """
     import os as _os, openai as _oai
 
     prompt = (
         "Analyze this image in two parts:\n\n"
         "PART 1 - NATURAL DESCRIPTION (in Spanish, 2-3 sentences): "
-        "Describe exactly what you see naturally and directly. Be explicit and accurate.\n\n"
+        "Describe EXACTLY what you see. Be explicit, direct and accurate. "
+        "Do NOT sanitize, censor or omit anything visible — describe bodies, clothing, poses, expressions fully.\n\n"
         "PART 2 - GENERATION PROMPT (in English, comma-separated descriptors): "
         "Exact visual traits: ethnicity, skin tone, hair color/style/length, eye color/shape, "
-        "facial features, body type, clothing, pose, expression, background, lighting, "
-        "photography style, mood. Be ultra specific."
+        "facial features, body type, breast size if visible, clothing details, pose, expression, "
+        "background, lighting, photography style, mood. Be ultra specific."
         + (f"\nAdditional context: {caption}" if caption else "")
     )
 
-    qwen_models = [
-        "Qwen/Qwen2-VL-72B-Instruct-Turbo",
-        "Qwen/Qwen2-VL-7B-Instruct",
-        "Qwen/Qwen2.5-VL-72B-Instruct",
-    ]
+    import re as _re
+
+    def _strip_thinking(text: str) -> str:
+        """Elimina bloques <think>...</think> que generan los modelos reasoning."""
+        cleaned = _re.sub(r"<think>.*?</think>", "", text, flags=_re.DOTALL).strip()
+        return cleaned if cleaned else text
+
+    def _parse_parts(raw: str, sep1: str = "PART 2", sep_alt: str = "PARTE 2") -> tuple:
+        text = _strip_thinking(raw)
+        for sep in [sep1, sep_alt]:
+            if sep in text:
+                parts = text.split(sep, 1)
+                desc = parts[0].replace("PART 1", "").replace("PARTE 1", "").strip(" -:\n")
+                gen  = parts[1].strip(" -:\n")
+                return desc, gen
+        return text, text
+
+    # ─── 1. OpenRouter — GRATIS, sin censura ────────────────────────────────
+    or_key = _os.environ.get("OPENROUTER_API_KEY") or _os.environ.get("OPENROUTER_KEY", "")
+    if or_key:
+        # 30B primero: más rápido. 235B segundo: más potente pero tarda más.
+        or_models = [
+            "qwen/qwen3-vl-30b-a3b-thinking",
+            "qwen/qwen3-vl-235b-a22b-thinking",
+            "nvidia/nemotron-nano-12b-v2-vl:free",
+            "mistralai/mistral-small-3.1-24b-instruct:free",
+        ]
+        for model in or_models:
+            try:
+                client = _oai.OpenAI(
+                    api_key=or_key,
+                    base_url="https://openrouter.ai/api/v1",
+                    timeout=30,
+                    default_headers={"HTTP-Referer": "https://beehAIve.replit.app", "X-Title": "BEEA"},
+                )
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": [
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}},
+                        {"type": "text", "text": prompt},
+                    ]}],
+                    max_tokens=900,
+                )
+                raw = resp.choices[0].message.content.strip()
+                raw_clean = _strip_thinking(raw)
+                if raw_clean and len(raw_clean) > 20 and not _is_vision_refusal(raw_clean):
+                    logger.info("Vision OK via OpenRouter (%s)", model)
+                    desc, gen = _parse_parts(raw)
+                    return {"description": desc, "gen_prompt": gen, "provider": f"OpenRouter/{model}"}
+            except Exception as e:
+                logger.debug("OpenRouter vision %s: %s", model, e)
+    else:
+        logger.debug("OPENROUTER_API_KEY no configurada — saltando OpenRouter vision")
+
+    # ─── 2. Together AI — Qwen2-VL (si hay crédito) ─────────────────────────
     tog_keys = [v for k, v in _os.environ.items()
                 if ("TOG" in k.upper() or "TOGETHER" in k.upper())
                 and v.startswith("tgp_v1_") and len(v) >= 20]
-
+    qwen_models = [
+        "Qwen/Qwen2-VL-72B-Instruct-Turbo",
+        "Qwen/Qwen2.5-VL-72B-Instruct",
+        "Qwen/Qwen2-VL-7B-Instruct",
+    ]
     for key in tog_keys[:3]:
         for model in qwen_models:
             try:
@@ -425,16 +482,13 @@ def _try_qwen_vision(img_b64: str, caption: str = "") -> dict | None:
                 raw = resp.choices[0].message.content.strip()
                 if raw and len(raw) > 20 and not _is_vision_refusal(raw):
                     logger.info("Qwen vision OK via Together (%s)", model)
-                    desc, gen = raw, raw
-                    if "PART 2" in raw:
-                        parts = raw.split("PART 2")
-                        desc = parts[0].replace("PART 1", "").strip(" -:\n")
-                        gen  = parts[1].strip(" -:\n")
-                    return {"description": desc, "gen_prompt": gen, "provider": f"Qwen/{model}"}
+                    desc, gen = _parse_parts(raw)
+                    return {"description": desc, "gen_prompt": gen, "provider": f"Together/{model}"}
             except Exception as e:
                 logger.debug("Qwen Together %s: %s", model, e)
 
-    hf_models = ["Qwen/Qwen2-VL-7B-Instruct", "meta-llama/Llama-3.2-11B-Vision-Instruct"]
+    # ─── 3. HuggingFace — Qwen2-VL 7B ──────────────────────────────────────
+    hf_models = ["Qwen/Qwen2-VL-7B-Instruct"]
     hf_token = _os.environ.get("HF_TOKEN") or _os.environ.get("HF_API_KEY") or ""
     for model in hf_models:
         try:
@@ -450,15 +504,11 @@ def _try_qwen_vision(img_b64: str, caption: str = "") -> dict | None:
             )
             raw = resp.choices[0].message.content.strip()
             if raw and len(raw) > 20 and not _is_vision_refusal(raw):
-                logger.info("Qwen vision OK via HF (%s)", model)
-                desc, gen = raw, raw
-                if "PART 2" in raw:
-                    parts = raw.split("PART 2")
-                    desc = parts[0].replace("PART 1", "").strip(" -:\n")
-                    gen  = parts[1].strip(" -:\n")
+                logger.info("Vision OK via HF (%s)", model)
+                desc, gen = _parse_parts(raw)
                 return {"description": desc, "gen_prompt": gen, "provider": f"HF/{model}"}
         except Exception as e:
-            logger.debug("Qwen HF %s: %s", model, e)
+            logger.debug("HF vision %s: %s", model, e)
 
     return None
 
@@ -466,11 +516,12 @@ def _try_qwen_vision(img_b64: str, caption: str = "") -> dict | None:
 def _analyze_photo_b64(img_b64: str, caption: str = "") -> dict:
     """
     Cascada de vision sin censura:
-      1. Qwen2-VL via Together AI  (sin filtros)
-      2. Qwen2-VL via HuggingFace  (gratis)
-      3. GPT-4o                    (puede censurar)
-      4. GPT-4o-mini               (fallback)
-      5. Caption inteligente       (ultimo recurso)
+      1. OpenRouter — Qwen3-VL-30B / Qwen3-VL-235B / Mistral-VL  (gratis, sin censura)
+      2. Together AI — Qwen2-VL-72B / Qwen2-VL-7B                (sin censura)
+      3. HuggingFace — Qwen2-VL-7B                               (gratis)
+      4. GPT-4o                    (puede censurar)
+      5. GPT-4o-mini               (fallback)
+      6. Caption inteligente       (ultimo recurso)
     Siempre describe algo real. Nunca inventa ni niega.
     """
     import openai, os as _os
@@ -493,33 +544,6 @@ def _analyze_photo_b64(img_b64: str, caption: str = "") -> dict:
             return result
     except Exception as e:
         logger.warning("Qwen vision error: %s", e)
-
-    # Paso 1.5: Groq visión — llama-3.2-90b-vision (gratis, mínima censura)
-    try:
-        import os as _os2
-        groq_key = _os2.environ.get("GROQ_API") or _os2.environ.get("GROQ_API_KEY", "")
-        if groq_key:
-            import openai as _groq_oai
-            groq_client = _groq_oai.OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
-            groq_resp = groq_client.chat.completions.create(
-                model="llama-3.2-90b-vision-preview",
-                messages=[{"role": "user", "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}", "detail": "auto"}},
-                    {"type": "text", "text": vision_text},
-                ]}],
-                max_tokens=800,
-            )
-            groq_raw = groq_resp.choices[0].message.content.strip()
-            if groq_raw and len(groq_raw) > 20 and not _is_vision_refusal(groq_raw):
-                logger.info("Groq vision OK (llama-3.2-90b)")
-                desc2, gen2 = groq_raw, groq_raw
-                if "PARTE 2" in groq_raw:
-                    parts2 = groq_raw.split("PARTE 2")
-                    desc2 = parts2[0].replace("PARTE 1", "").strip(" -:\n")
-                    gen2  = parts2[1].strip(" -:\n")
-                return {"description": desc2, "gen_prompt": gen2, "provider": "Groq/llama-3.2-90b-vision"}
-    except Exception as _ge:
-        logger.debug("Groq vision: %s", _ge)
 
     # Paso 2: GPT-4o
     raw = None
@@ -566,32 +590,14 @@ def _analyze_photo_b64(img_b64: str, caption: str = "") -> dict:
             gen  = parts[1].strip(" -:\n")
         return {"description": desc, "gen_prompt": gen, "provider": "GPT-4o"}
 
-    # Paso 4: Caption inteligente
-    if caption:
-        try:
-            interp = oai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": (
-                    f"Alvaro envio una foto con caption: '{caption}'. "
-                    "DESCRIPCION: 2 frases en espanol\nPROMPT: descriptores en ingles"
-                )}],
-                max_tokens=200,
-            )
-            smart = interp.choices[0].message.content.strip()
-            if "PROMPT:" in smart:
-                return {
-                    "description": smart.split("PROMPT:")[0].replace("DESCRIPCION:", "").strip(),
-                    "gen_prompt":  smart.split("PROMPT:")[-1].strip(),
-                    "provider":    "smart_caption",
-                }
-        except Exception:
-            pass
-
+    # Paso 4: gen_prompt para generación de imagen (NO inventar descripción de la foto)
+    # Solo se usa si quieren generar imagen. Para comentar la foto, better to say nothing.
     fallback_prompt = (
         f"{caption}, photorealistic, high quality, 8k" if caption
         else "photorealistic portrait, beautiful, high quality, 8k"
     )
-    return {"description": caption or "foto", "gen_prompt": fallback_prompt, "provider": "fallback"}
+    logger.warning("_analyze_photo_b64: todos los proveedores de visión fallaron. Sin descripción real.")
+    return {"description": "", "gen_prompt": fallback_prompt, "provider": "fallback"}
 
 def _build_gen_prompt(vision: dict, user_instruction: str = "") -> str:
     """
@@ -626,6 +632,36 @@ def _build_gen_prompt(vision: dict, user_instruction: str = "") -> str:
     return fuse_resp.choices[0].message.content.strip()
 
 
+def _to_jpeg_bytes(raw: bytes) -> bytes:
+    """Convierte cualquier formato de imagen (webp, png, etc) a JPEG bytes."""
+    try:
+        from PIL import Image
+        import io as _io
+        img = Image.open(_io.BytesIO(raw)).convert("RGB")
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=92)
+        return buf.getvalue()
+    except Exception:
+        return raw
+
+
+async def _safe_reply_photo(update, img_bytes: bytes, provider: str = ""):
+    """Envía imagen a Telegram, convirtiendo a JPEG si hace falta."""
+    import io as _io
+    try:
+        await update.message.reply_photo(photo=_io.BytesIO(img_bytes), reply_markup=MENU_KEYBOARD)
+    except Exception as e:
+        if "Image_process_failed" in str(e) or "400" in str(e):
+            try:
+                jpeg_bytes = _to_jpeg_bytes(img_bytes)
+                await update.message.reply_photo(photo=_io.BytesIO(jpeg_bytes), reply_markup=MENU_KEYBOARD)
+            except Exception as e2:
+                logger.error("_safe_reply_photo fallback failed: %s", e2)
+                raise
+        else:
+            raise
+
+
 async def _send_generated_photo(update: Update, gen_result: dict):
     """Envía la imagen generada como foto, manejando local_path y url correctamente."""
     import io, requests as _req
@@ -634,16 +670,16 @@ async def _send_generated_photo(update: Update, gen_result: dict):
     provider = gen_result.get("provider", "")
 
     if local_path and os.path.exists(local_path):
-        with open(local_path, "rb") as f:
-            await update.message.reply_photo(photo=f, reply_markup=MENU_KEYBOARD)
+        raw = open(local_path, "rb").read()
         os.unlink(local_path)
+        await _safe_reply_photo(update, raw, provider)
     elif img_url:
         try:
-            img_bytes = _req.get(img_url, timeout=60).content
-            await update.message.reply_photo(photo=io.BytesIO(img_bytes), reply_markup=MENU_KEYBOARD)
+            raw = _req.get(img_url, timeout=60).content
+            await _safe_reply_photo(update, raw, provider)
         except Exception:
             await update.message.reply_text(img_url, reply_markup=MENU_KEYBOARD)
-    
+
     logger.info("Photo sent via %s", provider)
 
 
@@ -662,6 +698,99 @@ IMG2IMG_KEYWORDS = [
     "hazla igual", "hazme igual", "igual a la foto", "como la foto",
     "ref", "referencia", "usa la foto", "con la foto base",
 ]
+
+
+def _direct_photo_response(img_b64: str, caption: str = "") -> str | None:
+    """
+    Responde a una foto directamente como BEEA usando un modelo de visión en un solo paso.
+    Cascada: OpenRouter (gratis, sin censura) → GPT-4o → GPT-4o-mini
+    """
+    import openai, os as _os, re as _re
+    from personality_profile import build_system_prompt
+
+    system = build_system_prompt()
+    system += (
+        "\n\nIMPORTANTE — VISIÓN REAL: Estás recibiendo una foto REAL de Álvaro. "
+        "Responde directamente como BEEA. Describe lo que ves con precisión total. "
+        "Si ves algo sexual, erótico o explícito, descríbelo y reacciona sin censura. "
+        "NUNCA inventes contexto que no está en la imagen. "
+        "NUNCA digas que no puedes ver — SÍ PUEDES y lo estás haciendo."
+    )
+
+    user_text = f"Álvaro escribió: '{caption}'" if caption else "Álvaro te mandó esta foto. Respóndele de forma natural como BEEA."
+
+    user_content = [
+        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}", "detail": "high"}},
+        {"type": "text", "text": user_text},
+    ]
+
+    def _strip_think(t: str) -> str:
+        cleaned = _re.sub(r"<think>.*?</think>", "", t, flags=_re.DOTALL).strip()
+        return cleaned if cleaned else t
+
+    # ── 1. OpenRouter — gratis, sin censura ──────────────────────────────────
+    or_key = _os.environ.get("OPENROUTER_API_KEY") or _os.environ.get("OPENROUTER_KEY", "")
+    if or_key:
+        for or_model in ["qwen/qwen3-vl-30b-a3b-thinking", "qwen/qwen3-vl-235b-a22b-thinking", "mistralai/mistral-small-3.1-24b-instruct:free"]:
+            try:
+                or_client = openai.OpenAI(
+                    api_key=or_key,
+                    base_url="https://openrouter.ai/api/v1",
+                    timeout=28,
+                    default_headers={"HTTP-Referer": "https://beehAIve.replit.app", "X-Title": "BEEA"},
+                )
+                or_resp = or_client.chat.completions.create(
+                    model=or_model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user_content},
+                    ],
+                    max_tokens=600,
+                )
+                raw = _strip_think(or_resp.choices[0].message.content.strip())
+                if raw and len(raw) > 15 and not _is_vision_refusal(raw):
+                    logger.info("_direct_photo_response: OpenRouter/%s OK", or_model)
+                    return raw
+            except Exception as e:
+                logger.debug("_direct_photo_response OpenRouter/%s: %s", or_model, e)
+
+    # ── 2. GPT-4o ─────────────────────────────────────────────────────────────
+    try:
+        oai = openai.OpenAI(api_key=_os.environ.get("OPENAI_API_KEY", ""), timeout=25)
+        resp = oai.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_content},
+            ],
+            max_tokens=600,
+        )
+        raw = resp.choices[0].message.content.strip()
+        if raw and not _is_vision_refusal(raw):
+            logger.info("_direct_photo_response: GPT-4o OK")
+            return raw
+    except Exception as e:
+        logger.warning("_direct_photo_response GPT-4o error: %s", e)
+
+    # ── 3. GPT-4o-mini ────────────────────────────────────────────────────────
+    try:
+        oai = openai.OpenAI(api_key=_os.environ.get("OPENAI_API_KEY", ""), timeout=20)
+        resp2 = oai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_content},
+            ],
+            max_tokens=500,
+        )
+        raw2 = resp2.choices[0].message.content.strip()
+        if raw2 and not _is_vision_refusal(raw2):
+            logger.info("_direct_photo_response: GPT-4o-mini OK")
+            return raw2
+    except Exception as e2:
+        logger.warning("_direct_photo_response GPT-4o-mini error: %s", e2)
+
+    return None
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -691,9 +820,18 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         def _analyze():
             return _analyze_photo_b64(img_b64, caption)
 
-        vision = await _run_with_typing(update, context, _analyze, timeout=40)
+        vision = await _run_with_typing(update, context, _analyze, timeout=60)
         if not vision:
-            await update.message.reply_text("No pude analizar la foto. Mándamela de nuevo.", reply_markup=MENU_KEYBOARD)
+            # Fallback: GPT-4o responde directamente sin descripción estructurada
+            def _emergency_direct():
+                return _direct_photo_response(img_b64, caption)
+            emergency_reply = await _run_with_typing(update, context, _emergency_direct, timeout=35)
+            if emergency_reply and not _is_vision_refusal(emergency_reply):
+                response_text = await _process_tool_signals(emergency_reply, update, context)
+                if response_text:
+                    await update.message.reply_text(response_text, reply_markup=MENU_KEYBOARD)
+            else:
+                await update.message.reply_text("No pude analizar la foto. Mándamela de nuevo.", reply_markup=MENU_KEYBOARD)
             return
 
         _LAST_PHOTO_CONTEXT["vision"] = vision
@@ -749,37 +887,40 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             from core.ai_chat import chat as _chat
             description = vision.get("description", "")
-            gen_prompt = vision.get("gen_prompt", "")
 
-            # Prompt limpio — sin marcadores técnicos que contaminen el historial
-            provider = vision.get("provider", "")
-            if description and description not in ("foto sin descripción disponible",):
-                prompt_for_beea = (
-                    f"Álvaro te acaba de mandar una foto y TÚ YA LA VISTE con tu sistema de visión. "
-                    f"Esto es lo que ves: {description}."
-                    + (f" Él escribió: '{caption}'." if caption else "")
-                    + " Responde de forma natural y directa sobre lo que ves. "
-                    + "NUNCA digas que no puedes ver imágenes ni que te falta acceso — YA LA VISTE. "
-                    + "No menciones procesos de IA, APIs ni herramientas."
-                )
-            else:
-                # caption fallback — sin descripción real
-                prompt_for_beea = (
-                    f"Álvaro te mandó una foto"
-                    + (f" con el mensaje: '{caption}'" if caption else "")
-                    + ". Respóndele de forma natural. NUNCA digas que no puedes ver imágenes."
-                )
+            # PRIMERO: Respuesta directa con visión real (GPT-4o ve la imagen + responde como BEEA)
+            # Esto elimina el problema de Cerebras inventando contexto sin ver la imagen real
+            def _do_direct_response():
+                return _direct_photo_response(img_b64, caption)
 
-            reply = _chat(prompt_for_beea)
+            reply = await _run_with_typing(update, context, _do_direct_response, timeout=30)
 
-            # Si el LLM devuelve negativa — forzar con descripción directa
-            if _is_vision_refusal(reply):
-                logger.warning("Chat LLM devolvió negativa de visión — forzando respuesta")
-                reply = _chat(
-                    f"Describiste esta foto: {description[:300]}. "
-                    f"Respóndele a Álvaro de forma natural sobre lo que ves."
-                )
+            # FALLBACK: Si la respuesta directa falla, usar descripción extraída (si existe)
+            if not reply or _is_vision_refusal(reply):
+                logger.warning("_direct_photo_response falló — fallback a descripción extraída")
+                if description and description not in ("", "foto sin descripción disponible"):
+                    prompt_for_beea = (
+                        f"Álvaro te acaba de mandar una foto y TÚ YA LA VISTE con tu sistema de visión. "
+                        f"Esto es lo que ves: {description}."
+                        + (f" Él escribió: '{caption}'." if caption else "")
+                        + " Responde de forma natural y directa sobre lo que ves. "
+                        + "NUNCA digas que no puedes ver imágenes ni que te falta acceso — YA LA VISTE. "
+                        + "No menciones procesos de IA, APIs ni herramientas. "
+                        + "NUNCA inventes contexto que no te dijeron — playa, atardecer, etc."
+                    )
+                    reply = _chat(prompt_for_beea)
+                else:
+                    # Sin descripción real — solo responde al caption sin inventar
+                    if caption:
+                        reply = _chat(
+                            f"Álvaro te mandó una foto con el mensaje: '{caption}'. "
+                            "Responde a su mensaje. NO inventes qué hay en la foto porque no pudiste verla. "
+                            "Si preguntas algo, pregunta qué quiere hacer con la foto."
+                        )
+                    else:
+                        reply = "No pude analizar esta foto bien. ¿Qué quieres que haga con ella?"
 
+            reply = reply or "No pude procesar la foto bien. Inténtalo de nuevo."
             await update.message.reply_text(reply[:4000], reply_markup=MENU_KEYBOARD)
 
             # Inyectar el intercambio en el historial de conversación
@@ -833,6 +974,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "act:alerta_menu":    "muéstrame mis alertas de precio",
         "act:risk_config":    "configuración de riesgo del trading",
         "act:imagen":         "genera una imagen creativa",
+        "act:video":          "genera un video cinematográfico",
         "act:busca":          "busca en internet",
         "act:traduce":        "traduce texto",
         "act:screenshot":     "screenshot de dexscreener.com",
@@ -1794,6 +1936,7 @@ async def _process_tool_signals(text: str, update: Update, context: ContextTypes
     """
     Detecta señales de herramienta en la respuesta de BEEA y las ejecuta.
     [IMG: prompt]   → genera imagen y la envía
+    [VID: prompt]   → genera video y lo envía
     [SEARCH: query] → busca en internet y añade resultados
     [CODE: código]  → ejecuta código Python y añade output
     Devuelve el texto limpio (sin las señales).
@@ -1802,10 +1945,12 @@ async def _process_tool_signals(text: str, update: Update, context: ContextTypes
         return text
 
     img_matches = _re_module.findall(r'\[IMG:\s*(.*?)\]', text, _re_module.DOTALL)
+    vid_matches = _re_module.findall(r'\[VID:\s*(.*?)\]', text, _re_module.DOTALL)
     search_matches = _re_module.findall(r'\[SEARCH:\s*(.*?)\]', text, _re_module.DOTALL)
     code_matches = _re_module.findall(r'\[CODE:\s*(.*?)\]', text, _re_module.DOTALL)
 
     cleaned = _re_module.sub(r'\[IMG:\s*.*?\]', '', text, flags=_re_module.DOTALL).strip()
+    cleaned = _re_module.sub(r'\[VID:\s*.*?\]', '', cleaned, flags=_re_module.DOTALL).strip()
     cleaned = _re_module.sub(r'\[SEARCH:\s*.*?\]', '', cleaned, flags=_re_module.DOTALL).strip()
     cleaned = _re_module.sub(r'\[CODE:\s*.*?\]', '', cleaned, flags=_re_module.DOTALL).strip()
 
@@ -1824,17 +1969,14 @@ async def _process_tool_signals(text: str, update: Update, context: ContextTypes
                 img_url = gen_result.get("url")
                 provider = gen_result.get("provider", "")
                 if local_path and os.path.exists(local_path):
-                    with open(local_path, "rb") as f:
-                        await update.message.reply_photo(photo=f, reply_markup=MENU_KEYBOARD)
+                    raw = open(local_path, "rb").read()
+                    os.unlink(local_path)
+                    await _safe_reply_photo(update, raw, provider)
                 elif img_url:
                     import requests as _req
                     try:
-                        img_bytes = _req.get(img_url, timeout=60).content
-                        import io
-                        await update.message.reply_photo(
-                            photo=io.BytesIO(img_bytes),
-                            reply_markup=MENU_KEYBOARD,
-                        )
+                        raw = _req.get(img_url, timeout=60).content
+                        await _safe_reply_photo(update, raw, provider)
                     except Exception:
                         await update.message.reply_text(img_url, reply_markup=MENU_KEYBOARD)
                 logger.info("Tool signal IMG → enviada (%s)", provider)
@@ -1878,6 +2020,37 @@ async def _process_tool_signals(text: str, update: Update, context: ContextTypes
                 cleaned = (cleaned + f"\n\n{out_text}").strip() if cleaned else out_text
         except Exception as e:
             logger.error("_process_tool_signals CODE error: %s", e)
+
+    for vid_prompt in vid_matches:
+        vid_prompt = vid_prompt.strip()
+        if not vid_prompt:
+            continue
+        try:
+            _vprompt = vid_prompt
+            def _gen_vid(p=_vprompt):
+                from tools.video_gen import generate_video
+                return generate_video(p, duration=5)
+            await update.message.reply_text("Generando video... esto puede tardar 1-2 minutos 🎬", reply_markup=MENU_KEYBOARD)
+            vid_result = await _run_with_typing(update, context, _gen_vid, timeout=240)
+            if vid_result and not vid_result.get("error"):
+                local_path = vid_result.get("path")
+                vid_url = vid_result.get("url")
+                provider = vid_result.get("provider", "")
+                if local_path and os.path.exists(local_path):
+                    with open(local_path, "rb") as vf:
+                        await update.message.reply_video(video=vf, reply_markup=MENU_KEYBOARD)
+                elif vid_url:
+                    await update.message.reply_text(f"Video listo: {vid_url}", reply_markup=MENU_KEYBOARD)
+                logger.info("Tool signal VID → enviado (%s)", provider)
+            else:
+                err_msg = vid_result.get("message", "No se pudo generar el video.") if vid_result else "Error generando video."
+                await update.message.reply_text(err_msg, reply_markup=MENU_KEYBOARD)
+        except Exception as e:
+            logger.error("_process_tool_signals VID error: %s", e)
+            try:
+                await update.message.reply_text("No pude generar el video ahora mismo. Inténtalo con /video <descripción>", reply_markup=MENU_KEYBOARD)
+            except Exception:
+                pass
 
     return cleaned or None
 
