@@ -258,7 +258,20 @@ def _try_stable_horde(prompt: str, width: int = 512, height: int = 512) -> dict:
         raise RuntimeError("Stable Horde: imagen vacía en respuesta")
 
     img_bytes = base64.b64decode(img_b64)
-    with tempfile.NamedTemporaryFile(suffix=".webp", delete=False) as tmp:
+
+    # Convertir a JPEG — Telegram no acepta WebP en sendPhoto
+    try:
+        from PIL import Image
+        import io as _io
+        img_obj = Image.open(_io.BytesIO(img_bytes)).convert("RGB")
+        buf = _io.BytesIO()
+        img_obj.save(buf, format="JPEG", quality=92)
+        img_bytes = buf.getvalue()
+        suffix = ".jpg"
+    except Exception:
+        suffix = ".webp"
+
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(img_bytes)
         local_path = tmp.name
 
