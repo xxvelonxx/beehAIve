@@ -52,9 +52,9 @@ El bot corre Telegram en polling mode + Discord en paralelo. Ambos comparten el 
 | `DISCORD_BOT_TOKEN` | Bot Discord | ✅ |
 | `OPENAI_API_KEY` | OpenAI GPT-4o + DALL-E 3 | ✅ |
 | `GROQ_API` | Groq — Llama rápido | ✅ |
-| `TOG_API1`…`TOG_API5` | Together AI — 5 claves (LLM + FLUX imágenes) | ✅ |
-| `CEREBRAS_API`…`CEREBRAS_API3` + `CEREBRA_API4` | Cerebras — 4 claves (ultra-rápido) | ✅ |
-| `GEMINI_API`/`2`/`3`/`5` | Gemini Flash — 4 claves | ✅ |
+| `TOG_API1`…`TOG_API5` | Together AI — 4 claves válidas (LLM + FLUX imágenes) | ✅ |
+| `CEREBRAS_API`…`CEREBRA_API12` | Cerebras — **15 claves → 750 rpm** (ultra-rápido, sin límite diario) | ✅ |
+| `GEMINI_API`/`2`/`3`/`5` | Gemini Flash — 4 claves → 40 rpm, 1.400/día | ✅ |
 | `ANTHROPIC_API_KEY` | Claude (backup) | ✅ |
 | `FAL_API_KEY` | fal.ai — FLUX.2 imágenes + LTX-2 video | ✅ |
 | `BFL_API_KEY` + `BFL_API_KEY2` | BFL API — FLUX.2-dev 32B (2 claves) | ✅ |
@@ -237,14 +237,18 @@ Sin FAL_KEY → mensaje con instrucciones para conseguirla gratis en fal.ai
 
 ---
 
-## Visión de fotos sin censura — Qwen2-VL
+## Visión de fotos sin censura — Cascada completa
 
 `_try_qwen_vision()` + `_analyze_photo_b64()` en `telegram_bot.py`:
-1. **Qwen2-VL-72B** via Together AI (sin censura, 5 claves rotativas)
+1. **Qwen2-VL-72B-Instruct-Turbo** via Together AI (sin censura — solo keys `tgp_v1_`)
 2. **Qwen2.5-VL-72B** via Together AI
-3. **Qwen2-VL-7B** via HuggingFace
-4. **GPT-4o** fallback
-5. **GPT-4o-mini** fallback ligero
+3. **Groq llama-3.2-90b-vision-preview** (gratis, baja censura) — AÑADIDO 10 Mar
+4. **Qwen2-VL-7B** via HuggingFace
+5. **GPT-4o** fallback
+6. **GPT-4o-mini** fallback ligero
+
+Bug corregido 10 Mar: Together filtraba keys expiradas (`key_CYtubx...`). Ahora solo acepta `tgp_v1_` prefix.
+Bug corregido 10 Mar: LLM de chat añadía disclaimers de visión. Prompt reforzado con instrucción explícita.
 
 Siempre retorna description (español) + gen_prompt (inglés para imágenes nuevas).
 
@@ -266,6 +270,31 @@ Siempre retorna description (español) + gen_prompt (inglés para imágenes nuev
 - Busca `message` → `full_analysis` → `analysis` → `result` → `error`
 - Errores técnicos comunes → respuesta natural en español
 - Nunca muestra dicts Python crudos al usuario
+
+---
+
+## Capacidad del enjambre (estado actual — 10 Mar 2026)
+
+| Proveedor | Claves | RPM total | Límite diario |
+|-----------|--------|-----------|---------------|
+| **Cerebras** | **15** | **750 rpm** | Sin límite — columna vertebral |
+| Together | 4 | 60 rpm | 8,000/día |
+| Gemini | 4 | 40 rpm | 1,400/día |
+| Groq | 1 | 25 rpm | 90/día |
+| OpenAI | 1 | 50 rpm | Sin límite |
+| Anthropic | 1 | 10 rpm | Sin límite |
+| **TOTAL** | **26** | **935 rpm** | — |
+
+**Modos del enjambre:**
+- `idle` (DEFAULT) — 0 BEEs entrenando, toda la cuota libre para Álvaro
+- `economico` — 5 BEEs, 5 rpm
+- `normal` — 25 BEEs, 25 rpm
+- `full` — 126 BEEs, 126 rpm (objetivo)
+- `burst` — 249 BEEs, manual solo
+
+**Matemática FULL:** 126 BEEs × 1 rpm = 126 rpm ≪ 750 rpm disponibles → **83% margen libre**
+
+**Imágenes:** BFL FLUX.2 (2 claves) + FAL.ai (1 clave) — cascada sin Replicate
 
 ---
 
