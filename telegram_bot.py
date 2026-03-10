@@ -2611,21 +2611,7 @@ async def _run_polling(token: str):
     logger.info("Starting in POLLING mode (development)")
     RETRY = 15
 
-    async def _health(request: web.Request) -> web.Response:
-        try:
-            status = project_status_tool.get_status()
-            project = status.get("current_project")
-        except Exception:
-            project = None
-        return web.json_response({"status": "ok", "mode": "polling", "project": project})
-
-    web_app = web.Application()
-    web_app.router.add_get("/", _health)
-    web_app.router.add_get("/health", _health)
-    runner = web.AppRunner(web_app)
-    await runner.setup()
-    await web.TCPSite(runner, "0.0.0.0", PORT).start()
-    logger.info("Health server on port %s", PORT)
+    logger.info("Health/web panel ya corriendo en Flask puerto 8080")
 
     # Iniciar loop de aprendizaje autónomo en background
     from memory.auto_learner import auto_learner
