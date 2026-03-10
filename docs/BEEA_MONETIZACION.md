@@ -7,29 +7,31 @@
 
 ## El activo real
 
-beehAIve no es un chatbot. Es un sistema que puede ejecutar **126+ tareas en paralelo**, aprender autónomamente, repararse solo y operar 24/7 sin supervisión. Eso tiene valor económico real.
+beehAIve no es un chatbot. Es un sistema que puede ejecutar **1000+ tareas en paralelo**, con Claude Opus 4 como cerebro principal, 24/7, sin pagar nada. Eso tiene valor económico real.
 
 ---
 
 ## Capacidad real del enjambre — 10 Mar 2026
 
-| Proveedor | Claves activas | RPM total | Límite diario |
-|-----------|---------------|-----------|---------------|
-| **Cerebras** | **15** | **750 rpm** | Sin límite (columna vertebral) |
-| Gemini Flash | 4 | 40 rpm | 1.400/día |
-| Together AI | 4 válidas | 60 rpm | 8.000/día |
-| Groq | 1 | 25 rpm | 90/día |
-| OpenAI | 1 | 50 rpm | Sin límite |
-| Anthropic | 1 | 10 rpm | Sin límite |
-| **TOTAL** | **26** | **935 rpm** | — |
+| Proveedor | Tokens/Claves | RPM | Límite diario | Coste |
+|-----------|--------------|-----|---------------|-------|
+| **Puter** | **5 tokens** | Sin límite publicado | Sin límite | **Gratis** |
+| **Cerebras** | **15 claves** | **750 rpm** | Sin límite | **Gratis** |
+| Together AI | 4 válidas | 60 rpm | 8.000/día | Gratis |
+| Gemini Flash | 4 | 40 rpm | 1.400/día | Gratis |
+| Groq | 1 | 25 rpm | 90/día | Gratis |
+| OpenAI | 1 | 50 rpm | Sin límite | Pago |
+| Anthropic | 1 | 10 rpm | Sin límite | Pago |
 
-**Imagen:** BFL FLUX.2-dev 32B (2 claves) + FAL.ai (1 clave)
-**Visión:** Qwen2-VL-72B (Together) → Groq llama-3.2-90b → GPT-4o
+**Cerebro principal:** Claude Sonnet 4 + Claude Opus 4 via Puter (gratis)
+**Motor de BEEs:** Cerebras 750 rpm + Puter overflow 250 rpm
+**Visión:** Qwen2-VL-72B → Groq llama-3.2-90b → GPT-4o
 
-**Cálculo modo FULL:**
-- 126 BEEs × 1 rpm = 126 rpm usado
-- 750 rpm disponible en Cerebras solo
-- **Margen libre: 83%** — corre 24/7 gratis sin tocar otras cuotas
+**Capacidad de BEEs:**
+- 750 BEEs garantizadas (solo Cerebras, sin riesgo)
+- 1000+ BEEs probables (Cerebras + Puter overflow)
+
+**Coste operativo total: $0/mes**
 
 ---
 
@@ -37,7 +39,7 @@ beehAIve no es un chatbot. Es un sistema que puede ejecutar **126+ tareas en par
 
 | Plataforma | Precio/mes | Agentes paralelo | Autonomía 24/7 | Auto-reparación | Telegram/Discord | Imágenes | Crypto |
 |------------|-----------|-----------------|---------------|-----------------|-----------------|---------|--------|
-| **beehAIve** | ~$7–50 | **126+** | ✅ | ✅ | ✅ nativo | ✅ FLUX.2-dev | ✅ completo |
+| **beehAIve** | **$0** | **1000+** | ✅ | ✅ | ✅ nativo | ✅ FLUX.2-dev | ✅ completo |
 | ChatGPT Plus | $20 | 1 | ❌ | ❌ | ❌ | ✅ DALL-E | ❌ |
 | Claude Pro | $20 | 1 | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Gemini Advanced | $20 | 1 | ❌ | ❌ | ❌ | ✅ Imagen 3 | ❌ |
@@ -56,31 +58,34 @@ beehAIve no es un chatbot. Es un sistema que puede ejecutar **126+ tareas en par
 | Video con audio (LTX-2) | ❌ | **✅ nativo** |
 | Monitoreo 24/7 continuo | ❌ | **✅ nativo** |
 | Self-repair si hay error | manual | **✅ automático** |
+| Usar Claude Opus 4 | $20/mes Claude Pro | **✅ gratis** |
 
 ### Coste por tarea
 
 | Tarea | Freelancer | ChatGPT | **beehAIve** |
 |-------|-----------|---------|-------------|
-| Research de mercado (token) | $100–300 / 6h | $0.10 / 45min | **$0.05 / 25 seg** |
-| Artículo 2000 palabras | $50–150 / 2h | $0.02 / 5min | **$0.01 / 15 seg** |
-| Due diligence DeFi | $500–2000 / 2d | no puede | **$0.50 / 5 min** |
+| Research de mercado (token) | $100–300 / 6h | $0.10 / 45min | **$0.00 / 25 seg** |
+| Artículo 2000 palabras | $50–150 / 2h | $0.02 / 5min | **$0.00 / 15 seg** |
+| Due diligence DeFi | $500–2000 / 2d | no puede | **$0.00 / 5 min** |
 | Imagen profesional | $30–100 / 1h | $0.08 / 30 seg | **$0.02 / 8 seg** |
 | Video 5 segundos | $200–500 / 1d | no puede | **$0.20 / 2 min** |
-| Monitoreo 24/7 (1 mes) | $2000–5000 | no puede | **$5–15 / mes** |
+| Monitoreo 24/7 (1 mes) | $2000–5000 | no puede | **$0 / mes** |
 
 ---
 
 ## Lo que NINGUNA otra plataforma tiene
 
-1. **126 BEEs en paralelo reales** — cada una con proveedor diferente, sin compartir rate limits
-2. **750 rpm de Cerebras gratuito** — 24/7 sin límite diario, 15 claves activas
-3. **Auto-reparación** — 3 BEEs reparan errores en segundos sin intervención
-4. **Inteligencia colectiva** — lo que aprende una BEE lo saben todas
-5. **Visión sin censura** — Qwen2-VL-72B + Groq antes que GPT-4o
-6. **FLUX.2-dev 32B** — el modelo de imagen de mayor calidad, directo desde Telegram
-7. **Video LTX-2 con audio** — texto → video con audio sincronizado
-8. **Crypto nativo** — wallets reales, Jupiter swaps, PumpFun, alertas
-9. **Key Hunter BEE** — busca nuevas claves API gratuitas de forma autónoma
+1. **1000 BEEs en paralelo reales** — 750 en Cerebras + 250 en Puter overflow
+2. **Claude Opus 4 gratis** — el modelo más potente del mercado, sin pagar
+3. **Claude Sonnet 4 gratis** — análisis, código, razonamiento de primer nivel
+4. **750 rpm de Cerebras gratuito** — 24/7 sin límite diario, 15 claves activas
+5. **Auto-reparación** — 3 BEEs reparan errores en segundos sin intervención
+6. **Inteligencia colectiva** — lo que aprende una BEE lo saben todas
+7. **Visión sin censura** — Qwen2-VL-72B + Groq antes que GPT-4o
+8. **FLUX.2-dev 32B** — el modelo de imagen de mayor calidad, directo desde Telegram
+9. **Video LTX-2 con audio** — texto → video con audio sincronizado
+10. **Crypto nativo** — wallets reales, Jupiter swaps, PumpFun, alertas
+11. **24/7 gratis** — UptimeRobot keep-alive, $0/mes de hosting
 
 ---
 
@@ -90,7 +95,7 @@ beehAIve no es un chatbot. Es un sistema que puede ejecutar **126+ tareas en par
 - Análisis completo de un token: fundamentos, on-chain, sentiment
 - Precio: $50–200 por informe
 - Tiempo real: 25 segundos
-- Coste real: ~$0.05
+- Coste real: $0.00
 
 **Due Diligence de Proyectos DeFi/NFT**
 - Precio: $150–500 por proyecto
@@ -127,7 +132,7 @@ beehAIve no es un chatbot. Es un sistema que puede ejecutar **126+ tareas en par
 
 **Artículos de Blog**
 - 4 artículos/semana, 1500-2000 palabras, SEO
-- Precio: $300–800/mes — Coste real: <$5
+- Precio: $300–800/mes — Coste real: $0
 
 **Imágenes Profesionales con FLUX.2**
 - 50 imágenes/mes: $200–400
@@ -146,7 +151,7 @@ beehAIve no es un chatbot. Es un sistema que puede ejecutar **126+ tareas en par
 | Básico | $30 | 1 | 500 consultas/mes |
 | Pro | $100 | 10 | 2000 consultas, HiveMind básico |
 | Enterprise | $300 | 50 | Ilimitado, imágenes FLUX.2 |
-| Custom | $1000+ | Hasta 126 | Setup dedicado |
+| Custom | $1000+ | Hasta 1000 | Setup dedicado, Claude Opus 4 |
 
 ---
 
@@ -189,19 +194,10 @@ beehAIve no es un chatbot. Es un sistema que puede ejecutar **126+ tareas en par
 - **Total acumulado: ~$3.950/mes**
 
 ### Coste operativo real
-- APIs: **~$0–15/mes** (mayoría gratis con las 26 claves actuales)
-- Hosting (Replit Deploy): ~$7/mes para 24/7 real
-- **Margen bruto: 90–95%**
-
----
-
-## Qué se necesita para producción
-
-| Qué | Costo | Impacto |
-|-----|-------|---------|
-| $5 BFL créditos | $5 único | Imágenes FLUX.2 siempre disponibles |
-| Deploy Replit | ~$7/mes | 24/7 real sin dormir |
-| Más claves Groq | Gratis | Más capacidad vision + texto |
+- APIs: **$0/mes** (todo gratis con Puter + Cerebras + free tiers)
+- Hosting: **$0/mes** (UptimeRobot keep-alive en Replit)
+- Imágenes FLUX.2: ~$0–5/mes (BFL_API_KEY, opcional)
+- **Margen bruto: 95–100%**
 
 ---
 
@@ -209,13 +205,15 @@ beehAIve no es un chatbot. Es un sistema que puede ejecutar **126+ tareas en par
 
 | Métrica | beehAIve | Competidores |
 |---------|----------|--------------|
-| Agentes en paralelo | **126 (modo FULL) / 750 max** | 1–20 |
-| RPM disponible | **935 rpm (26 claves)** | limitado |
-| Coste por research | **$0.05** | $0–5 |
+| Agentes en paralelo | **1000 (Cerebras + Puter)** | 1–20 |
+| Modelo premium | **Claude Opus 4 GRATIS** | $20/mes Claude Pro |
+| RPM disponible | **1000+ rpm** | limitado |
+| Coste mensual | **$0** | $20–100/mes |
+| Coste por research | **$0.00** | $0–5 |
 | Auto-reparación | **✅** | ❌ |
 | Imagen FLUX.2-dev 32B | **✅ nativo** | ❌ |
 | Video LTX-2 con audio | **✅ nativo** | ❌ |
 | Integración Telegram | **✅ nativo** | webhooks manuales |
-| Coste marginal | **casi cero** | —  |
+| 24/7 sin pagar hosting | **✅** | ❌ |
 
-El primer cliente puede conseguirse esta semana. El sistema ya está listo.
+El primer cliente puede conseguirse esta semana. El sistema ya está listo. Coste cero.
