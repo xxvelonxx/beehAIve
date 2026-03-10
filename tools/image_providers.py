@@ -141,6 +141,7 @@ def generate_fal(prompt: str, width: int = 1024, height: int = 1024) -> dict:
                                   "num_images": 1, "output_format": "png"}),
     ]
 
+    fal_errors = []
     for model_id, payload in fal_models:
         try:
             resp = requests.post(
@@ -148,14 +149,18 @@ def generate_fal(prompt: str, width: int = 1024, height: int = 1024) -> dict:
                 headers=headers, json=payload, timeout=TIMEOUT,
             )
             if resp.status_code == 404:
+                fal_errors.append(f"{model_id}: 404")
                 continue
             if resp.status_code not in (200, 202):
-                raise RuntimeError(f"FAL/{model_id} {resp.status_code}: {resp.text[:200]}")
+                fal_errors.append(f"{model_id}: {resp.status_code}")
+                logger.debug("FAL/%s %s — probando siguiente", model_id, resp.status_code)
+                continue
 
             data = resp.json()
             images = data.get("images", [])
             if not images:
-                raise RuntimeError(f"FAL/{model_id}: sin imagen")
+                fal_errors.append(f"{model_id}: sin imagen")
+                continue
 
             image_url = images[0].get("url") if isinstance(images[0], dict) else images[0]
             img_data = requests.get(image_url, timeout=60).content
@@ -165,12 +170,11 @@ def generate_fal(prompt: str, width: int = 1024, height: int = 1024) -> dict:
             return {"url": image_url, "local_path": local_path,
                     "revised_prompt": prompt, "provider": f"FAL.ai/{label}/{model_id.split('/')[-1]}"}
 
-        except RuntimeError:
-            raise
         except Exception as e:
+            fal_errors.append(f"{model_id}: {e}")
             logger.debug("FAL/%s: %s — trying next", model_id, e)
 
-    raise RuntimeError("FAL.ai: ningún modelo FLUX disponible")
+    raise RuntimeError(f"FAL.ai: ningún modelo disponible — {' | '.join(fal_errors[-4:])}")
 
 
 # ── 2. Together AI (FLUX.1-schnell-Free — gratis sin restricciones) ──────────
@@ -385,13 +389,13 @@ def _has_together_key() -> bool:
 
 
 PROVIDER_CHAIN = [
-    ("BFL/FLUX.2",   generate_bfl,           "BFL_API_KEY"),
-    ("Stable Horde", generate_stable_horde,  None),
     ("FAL.ai/FLUX.2",generate_fal,           "FAL_KEY"),
+    ("BFL/FLUX.2",   generate_bfl,           "BFL_API_KEY"),
     ("Together AI",  generate_together,      "TOGETHER_API_KEY"),
     ("getimg.ai",    generate_getimg,        "GETIMG_API_KEY"),
     ("Prodia",       generate_prodia,        "PRODIA_API_KEY"),
     ("HuggingFace",  generate_huggingface,  "HF_TOKEN"),
+    ("Stable Horde", generate_stable_horde,  None),
 ]
 
 
@@ -408,6 +412,9 @@ def _check_key(env_key) -> bool:
     if env_key == "BFL_API_KEY":
         return bool(os.environ.get("BFL_API_KEY") or os.environ.get("BFL_KEY")
                     or os.environ.get("BFL_API_KEY2"))
+    if env_key == "FAL_KEY":
+        return bool(os.environ.get("FAL_KEY") or os.environ.get("FAL_API_KEY")
+                    or os.environ.get("FAL_TOKEN"))
     return False
 
 
