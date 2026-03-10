@@ -2,7 +2,8 @@
 LLM Adapter — routing inteligente entre proveedores.
 
 Prioridad para BEEs/entrenamiento autónomo:
-  1. Cerebras  — hardware dedicado, ~1000 tok/seg, 4 keys, 50 rpm sostenido
+  0. Puter     — GRATIS, Claude Sonnet 4/Opus 4/GPT-4o, 5 tokens rotando, sin límite publicado
+  1. Cerebras  — hardware dedicado, ~1000 tok/seg, 19 keys, 950 rpm sostenido
   2. Together AI — pool 4 keys válidas (tgp_v1_*), sin censura
   3. Groq      — 100K tokens/día free tier, function-calling nativo
   4. Gemini    — 1500 req/día free, contexto 1M tokens
@@ -10,9 +11,10 @@ Prioridad para BEEs/entrenamiento autónomo:
   6. Anthropic — pago, fallback creativo
 
 Rate limiter global: cada proveedor tiene RPM y cuota diaria configurados.
-50 BEEs × 1 llamada/min = 50 rpm → caben todas en Cerebras sin agotar nada.
+950 BEEs × 1 llamada/min = 950 rpm → caben en Cerebras (950 rpm) sin tocar Puter.
 Multi-key pools: cada proveedor puede tener N claves que rotan en round-robin.
 Variables soportadas:
+  Puter       : PUTER_TOKEN, PUTER_TOKEN2..PUTER_TOKEN9
   Together AI : TOG_API1..TOG_API20  o  TOGETHER_API_KEY
   Groq        : GROQ_API, GROQ_API_KEY, GROQ_API1..GROQ_API10
   OpenAI      : OPENAI_API_KEY, OPENAI_API_KEY_1..OPENAI_API_KEY_5
@@ -335,6 +337,7 @@ class _KeyPool:
 #
 # Patrones por proveedor (busca en el NOMBRE de la variable):
 _PROVIDER_PATTERNS: dict[str, list[str]] = {
+    "puter":     ["PUTER_TOKEN", "PUTER"],
     "together":  ["TOG_API", "TOGETHER"],
     "groq":      ["GROQ"],
     "openai":    ["OPENAI"],
@@ -405,6 +408,7 @@ def _scan_env_for_provider(patterns: list[str]) -> list[str]:
 
 # ── Pools dinámicos ────────────────────────────────────────────────────────────
 
+_PUTER_POOL      = _KeyPool(_scan_env_for_provider(_PROVIDER_PATTERNS["puter"]))
 _TOGETHER_POOL   = _KeyPool(_scan_env_for_provider(_PROVIDER_PATTERNS["together"]))
 _GROQ_POOL       = _KeyPool(_scan_env_for_provider(_PROVIDER_PATTERNS["groq"]))
 _OPENAI_POOL     = _KeyPool(_scan_env_for_provider(_PROVIDER_PATTERNS["openai"]))
@@ -417,6 +421,7 @@ _COHERE_POOL     = _KeyPool(_scan_env_for_provider(_PROVIDER_PATTERNS["cohere"])
 _GEMINI_POOL     = _KeyPool(_scan_env_for_provider(_PROVIDER_PATTERNS["gemini"]))
 
 _ALL_POOLS: dict[str, _KeyPool] = {
+    "puter":      _PUTER_POOL,
     "together":   _TOGETHER_POOL,
     "groq":       _GROQ_POOL,
     "openai":     _OPENAI_POOL,
@@ -440,7 +445,7 @@ def refresh_pools() -> dict:
     desde el panel web o desde Telegram con /refresh_keys.
     Retorna el nuevo estado.
     """
-    global _TOGETHER_POOL, _GROQ_POOL, _OPENAI_POOL, _ANTHROPIC_POOL
+    global _PUTER_POOL, _TOGETHER_POOL, _GROQ_POOL, _OPENAI_POOL, _ANTHROPIC_POOL
     global _FIREWORKS_POOL, _MISTRAL_POOL, _CEREBRAS_POOL
     global _OPENROUTER_POOL, _COHERE_POOL, _GEMINI_POOL
 
@@ -452,6 +457,7 @@ def refresh_pools() -> dict:
             logger.info("Pool %s actualizado: %d clave(s)", name, len(new_keys))
 
     # Reasignar variables globales desde el dict actualizado
+    _PUTER_POOL      = _ALL_POOLS["puter"]
     _TOGETHER_POOL   = _ALL_POOLS["together"]
     _GROQ_POOL       = _ALL_POOLS["groq"]
     _OPENAI_POOL     = _ALL_POOLS["openai"]
@@ -486,6 +492,7 @@ _refresh_thread.start()
 
 # Funciones de clave (API pública — compatibles con código existente)
 # Usan lambdas que leen del dict _ALL_POOLS para que siempre reflejen el estado más reciente
+PUTER_KEY     = lambda: _ALL_POOLS["puter"].next()
 OPENAI_KEY    = lambda: _ALL_POOLS["openai"].next()
 ANTHROPIC_KEY = lambda: _ALL_POOLS["anthropic"].next()
 GROQ_KEY      = lambda: _ALL_POOLS["groq"].next()
@@ -526,6 +533,93 @@ TOGETHER_UNCENSORED_MODELS = [
 
 
 # ── Funciones base ────────────────────────────────────────────────────────────
+
+_PUTER_URL = "https://api.puter.com/drivers/call"
+_PUTER_HEADERS = {
+    "Content-Type": "application/json",
+    "Accept": "*/*",
+    "Origin": "https://docs.puter.com",
+    "Referer": "https://docs.puter.com/",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+}
+
+def _puter_driver(model: str) -> str:
+    if model.startswith(("gpt", "o1", "o3", "o4")): return "openai-completion"
+    if model.startswith("claude"): return "claude"
+    if model.startswith("gemini"): return "gemini"
+    if model.startswith(("grok", "grok-")): return "xai"
+    if model.startswith("deepseek"): return "openai-completion"
+    if model.startswith(("llama", "meta-llama")): return "openai-completion"
+    return "openai-completion"
+
+PUTER_SMART_MODEL = "claude-sonnet-4"   # Claude Sonnet 4 — gratis vía Puter
+PUTER_OPUS_MODEL  = "claude-opus-4"     # Claude Opus 4  — gratis vía Puter
+PUTER_FAST_MODEL  = "gpt-4o-mini"       # GPT-4o-mini    — gratis vía Puter
+PUTER_GPT4_MODEL  = "gpt-4o"            # GPT-4o         — gratis vía Puter
+PUTER_GEMINI_MODEL= "gemini-2.0-flash"  # Gemini Flash   — gratis vía Puter
+
+
+def _puter(messages: list, model: str = "claude-sonnet-4") -> str:
+    """
+    Puter.com — proxy gratuito a Claude/GPT-4o/Gemini.
+    Tokens rotan en round-robin. Si uno da 401 (expirado), prueba el siguiente.
+    Modelos confirmados GRATIS:
+      claude-sonnet-4  (Claude Sonnet 4 — el más nuevo)
+      claude-opus-4    (Claude Opus 4   — el más potente)
+      gpt-4o, gpt-4o-mini
+      gemini-2.0-flash
+    """
+    pool = _ALL_POOLS["puter"]
+    if not pool:
+        raise RuntimeError("No PUTER_TOKEN disponible")
+    total = len(pool)
+    last_error = None
+    for _ in range(total):
+        token = pool.next()
+        if not token:
+            continue
+        payload = {
+            "interface": "puter-chat-completion",
+            "driver": _puter_driver(model),
+            "test_mode": False,
+            "method": "complete",
+            "args": {
+                "messages": messages,
+                "model": model,
+                "stream": False,
+            },
+            "auth_token": token,
+        }
+        try:
+            resp = requests.post(_PUTER_URL, headers=_PUTER_HEADERS, json=payload, timeout=60)
+            if resp.status_code == 401:
+                logger.warning("Puter token expirado (401), rotando al siguiente")
+                last_error = "401"
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            if data.get("success") is False:
+                err = data.get("error", "unknown")
+                logger.warning("Puter error en modelo %s: %s", model, err)
+                last_error = err
+                continue
+            content = data.get("result", {})
+            if isinstance(content, dict):
+                msg = content.get("message", {})
+                if isinstance(msg, dict):
+                    c = msg.get("content", "")
+                    if isinstance(c, list):
+                        return "".join(p.get("text", "") for p in c if isinstance(p, dict)).strip()
+                    return str(c).strip()
+                text = content.get("text", "") or content.get("content", "")
+                return str(text).strip()
+            return str(content).strip()
+        except requests.RequestException as e:
+            logger.warning("Puter request falló: %s", e)
+            last_error = str(e)
+            continue
+    raise RuntimeError(f"Puter: todos los tokens fallaron. Último error: {last_error}")
+
 
 def _openai(messages: list, model: str = "gpt-4o-mini", tools: list = None) -> str:
     _acquire_quota("openai")
@@ -743,10 +837,12 @@ def _gemini(messages: list, model: str = "gemini-2.0-flash") -> str:
 def generate_with_fallback(messages: list) -> str:
     """
     Cascada completa por prioridad real:
-    Together(5 keys) → Cerebras(4 keys) → Gemini(4 keys) → Groq → OpenAI → Anthropic
+    Puter(6 tokens gratis) → Together(5 keys) → Cerebras(16 keys) → Gemini(4 keys) → Groq → OpenAI → Anthropic
     Usa los proveedores más baratos primero, los premium como último recurso.
     """
     providers = []
+    if _ALL_POOLS["puter"]:
+        providers.append(("Puter", lambda: _puter(messages, model=PUTER_SMART_MODEL)))
     if _ALL_POOLS["together"]:
         providers.append(("Together", lambda: _together(messages)))
     if _ALL_POOLS["cerebras"]:
@@ -872,6 +968,15 @@ def generate_for_bees(messages: list, tools: list = None) -> str:
         except Exception as e:
             logger.warning("Groq BEE falló: %s", e)
 
+    # Puter — Claude Sonnet 4 gratis como penúltimo recurso
+    if _ALL_POOLS["puter"]:
+        try:
+            result = _puter(messages, model=PUTER_FAST_MODEL)
+            if result:
+                return result
+        except Exception as e:
+            logger.warning("Puter BEE falló: %s", e)
+
     # OpenAI último recurso
     if OPENAI_KEY():
         try:
@@ -921,13 +1026,14 @@ def generate_for_bees_with_response(messages: list, tools: list):
 #   BULK     — Together  (5 keys en rotación, coste ~cero, BEEs)
 #   CONTEXT  — Gemini Flash (128K ctx, 4 keys, multimodal)
 #   SMART    — Groq Llama 70B (rápido, open-source, financial ok)
-#   PREMIUM  — OpenAI GPT-4o (mejor razonamiento)
-#   NUANCED  — Anthropic Claude (mejor escritura, ética, análisis profundo)
+#   PREMIUM  — Puter Claude 3.7 GRATIS (6 tokens rotando, sin límite publicado)
+#   NUANCED  — Puter Claude 3.7 (mejor escritura, ética, análisis profundo)
 #   UNCENSORED — Together AI (sin filtros)
 #
-#  Regla: nunca gastar GPT-4o/Claude en tareas simples.
+#  Regla: nunca gastar GPT-4o/Claude de pago en tareas simples.
 #  Regla: usar Cerebras cuando la velocidad importa más que la calidad.
-#  Regla: usar Together para todas las BEEs (5 keys = sin límite efectivo).
+#  Regla: usar Puter Claude 3.7 para análisis/código/razonamiento (GRATIS).
+#  Regla: usar Together para BEEs en bulk (5 keys = sin límite efectivo).
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _route_speed(m):
@@ -980,7 +1086,12 @@ def _route_context(m):
     return _together(m) if _ALL_POOLS["together"] else generate_with_fallback(m)
 
 def _route_analysis(m):
-    """Together Llama → Groq → Gemini — análisis y research."""
+    """Puter Claude 3.7 → Together Llama → Groq → Gemini — análisis y research."""
+    if _ALL_POOLS["puter"]:
+        try:
+            return _puter(m, model=PUTER_SMART_MODEL)
+        except Exception:
+            pass
     if _ALL_POOLS["together"]:
         try:
             return _together(m, model="meta-llama/Llama-3.3-70B-Instruct-Turbo")
@@ -994,7 +1105,12 @@ def _route_analysis(m):
     return _gemini(m) if _ALL_POOLS["gemini"] else generate_with_fallback(m)
 
 def _route_code(m):
-    """Groq tool-use → GPT-4o → Together — para código con function-calling."""
+    """Puter Claude 3.7 → Groq → GPT-4o — para código."""
+    if _ALL_POOLS["puter"]:
+        try:
+            return _puter(m, model=PUTER_SMART_MODEL)
+        except Exception:
+            pass
     if GROQ_KEY():
         try:
             return _groq(m, GROQ_TOOL_MODEL)
@@ -1008,7 +1124,12 @@ def _route_code(m):
     return generate_with_fallback(m)
 
 def _route_complex(m):
-    """GPT-4o → Together Llama — razonamiento complejo, matemáticas, planificación."""
+    """Puter Claude 3.7 → GPT-4o → Together Llama — razonamiento complejo, matemáticas, planificación."""
+    if _ALL_POOLS["puter"]:
+        try:
+            return _puter(m, model=PUTER_SMART_MODEL)
+        except Exception:
+            pass
     if OPENAI_KEY():
         try:
             return _openai(m, "gpt-4o")
@@ -1022,7 +1143,12 @@ def _route_complex(m):
     return generate_with_fallback(m)
 
 def _route_creative(m):
-    """Anthropic Claude → Together → GPT-4o — escritura, creatividad, matices."""
+    """Puter Claude 3.7 → Anthropic → Together — escritura, creatividad, matices."""
+    if _ALL_POOLS["puter"]:
+        try:
+            return _puter(m, model=PUTER_SMART_MODEL)
+        except Exception:
+            pass
     if ANTHROPIC_KEY():
         try:
             return _anthropic(m, model="claude-3-5-haiku-20241022")
