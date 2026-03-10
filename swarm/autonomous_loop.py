@@ -33,9 +33,37 @@ IMPROVE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Configuración ──────────────────────────────────────────────────────────────
 CHECK_INTERVAL   = 60     # segundos entre ciclos del loop
-MAX_PARALLEL     = 50     # BEEs autónomas en paralelo — 126 estables / 252 burst, reservamos ~76 para tareas de Álvaro
+MAX_PARALLEL     = 50     # BEEs máximas para tareas de Álvaro y burst manual
 TRAIN_DURATION   = 1800   # 30 min de entrenamiento por sesión
 IMPROVE_INTERVAL = 3600   # cada 1h: ciclo completo de análisis de mejoras
+
+# ── Modos de operación del loop ────────────────────────────────────────────────
+#
+# IDLE (default):  0 BEEs entrenando — bot alive, cero llamadas LLM del loop.
+#                  Toda la cuota reservada para requests directos de Álvaro.
+#                  El bot responde, escucha, monitorea — pero NO entrena.
+#
+# ECONOMICO:       5 BEEs — Cerebras como proveedor, 24/7 sostenible.
+#                  ~5 rpm consumido de los 200 disponibles.
+#
+# NORMAL:          25 BEEs — ~25 rpm, deja 175 rpm libre para Álvaro.
+#
+# FULL:            126 BEEs — ocupa exactamente los 200 rpm de Cerebras.
+#                  Sostenible 24/7 con las 4 keys de Cerebras, sin tocar
+#                  Groq/Gemini/Together/OpenAI (reservados para Álvaro).
+#                  OBJETIVO FINAL: este es el modo que buscamos tener siempre.
+#
+# BURST:           249 BEEs — usa TODOS los proveedores a la vez.
+#                  Solo manual, máximo 30 min antes de agotar cuotas gratuitas.
+#
+TRAINING_MODES = {
+    "idle":      0,    # DEFAULT — 0 LLM calls del loop, toda cuota para Álvaro
+    "economico": 5,    # 5 BEEs, ~5 rpm, 24/7 sostenible
+    "normal":    25,   # 25 BEEs, ~25 rpm, 24/7 sostenible
+    "full":      126,  # 126 BEEs, ~126 rpm, 24/7 sostenible con 4 Cerebras keys
+    "burst":     249,  # 249 BEEs, todos los providers, solo manual/temporal
+}
+TRAINING_MODE_DEFAULT = "idle"   # Conservar cuota hasta que Álvaro configure el modo
 
 # ── Temas de entrenamiento automático — 45 temas únicos ──────────────────────
 AUTO_TRAIN_TOPICS = [
@@ -179,6 +207,9 @@ class AutonomousLoop:
         self._train_index     = 0
         self._last_improve    = 0.0
         self._lock            = threading.Lock()
+        # Modo de entrenamiento: economico(5) | normal(15) | burst(50)
+        self._training_mode   = TRAINING_MODE_DEFAULT
+        self._burst_until     = 0.0   # timestamp hasta el que dura el burst
         self._stats           = {
             "cycles":         0,
             "trainings":      0,
@@ -187,6 +218,54 @@ class AutonomousLoop:
             "started_at":     None,
         }
         self._load_proposals()
+
+    def set_training_mode(self, mode: str, duration_minutes: int = 30) -> str:
+        """
+        Cambia el modo de entrenamiento autónomo.
+        Modos: idle | economico | normal | full | burst
+        burst y full_burst expiran automáticamente tras duration_minutes.
+        """
+        mode = mode.lower().strip()
+        if mode not in TRAINING_MODES:
+            valid = ", ".join(TRAINING_MODES.keys())
+            return f"Modo inválido '{mode}'. Opciones: {valid}"
+
+        self._training_mode = mode
+        bees = TRAINING_MODES[mode]
+
+        if mode == "burst":
+            self._burst_until = time.time() + duration_minutes * 60
+            return (
+                f"BURST activado — {bees} BEEs en paralelo durante {duration_minutes} min.\n"
+                f"Usa todos los proveedores. Vuelve a IDLE automáticamente al expirar."
+            )
+
+        self._burst_until = 0.0
+
+        desc = {
+            "idle":      "0 BEEs — bot alive, toda la cuota reservada para ti",
+            "economico": "5 BEEs — Cerebras, 24/7 sostenible (~5 rpm de 200)",
+            "normal":    "25 BEEs — Cerebras, 24/7 sostenible (~25 rpm de 200)",
+            "full":      "126 BEEs — Cerebras 4 keys, 24/7 continuo (~126 rpm de 200) ← OBJETIVO",
+        }
+        extra = ""
+        if mode == "full":
+            extra = (
+                "\n\nEstado: las 4 keys de Cerebras tienen 200 rpm combinados.\n"
+                "126 BEEs × 1 llamada/min = 126 rpm. ¡Caben todas sin agotar nada!"
+            )
+        return f"Modo {mode.upper()}: {desc.get(mode, '')} ({bees} BEEs activas){extra}"
+
+    def _active_training_limit(self) -> int:
+        """Devuelve cuántas BEEs de entrenamiento usar en este momento."""
+        if self._training_mode == "burst":
+            if time.time() < self._burst_until:
+                return TRAINING_MODES["burst"]
+            # Burst expiró — volver a económico automáticamente
+            self._training_mode = TRAINING_MODE_DEFAULT
+            self._burst_until = 0.0
+            self._notify("Modo BURST expirado — volviendo a modo ECONÓMICO (5 BEEs).")
+        return TRAINING_MODES[self._training_mode]
 
     # ── Persistencia ─────────────────────────────────────────────────────────
 
@@ -373,6 +452,11 @@ class AutonomousLoop:
         # Primera ejecución: pequeño delay para que el bot arranque completamente
         time.sleep(60)
 
+        # Circuit breaker — evita spam cuando todos los proveedores están caídos/limitados
+        _consecutive_failures = 0
+        _FAIL_THRESHOLD = 5       # fallos consecutivos antes de pausar
+        _BACKOFF_SECONDS = 300    # 5 minutos de pausa cuando se activa el circuit breaker
+
         while self._running:
             if self._paused:
                 time.sleep(30)
@@ -382,17 +466,30 @@ class AutonomousLoop:
             cycle_num = self._stats["cycles"]
 
             # ── Cada ciclo: iniciar/mantener sesión de entrenamiento ──────────
+            cycle_ok = False
             try:
                 from swarm.bee_trainer import bee_trainer
                 active = bee_trainer.status()
                 running_trains = [s for s in active if s["status"] == "running"]
 
-                # Llenar slots hasta MAX_PARALLEL — cada BEE libre aprende algo
-                slots_libres = MAX_PARALLEL - len(running_trains)
-                for _ in range(slots_libres):
+                # Llenar slots según modo activo: economico=5 | normal=15 | burst=50
+                limit = self._active_training_limit()
+                slots_libres = limit - len(running_trains)
+                for _ in range(max(0, slots_libres)):
                     self._start_training_session()
+                cycle_ok = True
+                _consecutive_failures = 0
             except Exception as e:
-                logger.warning("AutonomousLoop: training slot error: %s", e)
+                _consecutive_failures += 1
+                logger.warning("AutonomousLoop: training slot error (%d/%d): %s",
+                               _consecutive_failures, _FAIL_THRESHOLD, e)
+                if _consecutive_failures >= _FAIL_THRESHOLD:
+                    logger.warning(
+                        "AutonomousLoop: circuit breaker activado — "
+                        "todos los proveedores limitados. Pausa %ds.", _BACKOFF_SECONDS
+                    )
+                    time.sleep(_BACKOFF_SECONDS)
+                    _consecutive_failures = 0
 
             # ── Cada hora: análisis de mejoras ────────────────────────────────
             now = time.time()
