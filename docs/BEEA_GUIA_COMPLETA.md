@@ -1,7 +1,7 @@
 # beehAIve — Guía Completa de Funciones y Capacidades
 
 > Propietario exclusivo: Álvaro (@xxvelonxx)
-> Versión: 4.0 — 10 Marzo 2026
+> Versión: 4.1 — 10 Marzo 2026
 
 ---
 
@@ -37,7 +37,7 @@ beehAIve es un sistema de inteligencia artificial autónomo que corre en Telegra
 | Proveedor | Tokens/Claves | RPM total | Límite diario | Rol |
 |-----------|--------------|-----------|---------------|-----|
 | **Puter** | **5 tokens** | Sin límite publicado | Sin límite | Claude Opus 4 + Sonnet 4 + GPT-4o GRATIS |
-| **Cerebras** | **15 claves** | **750 rpm** | Sin límite | Columna vertebral BEEs 24/7 |
+| **Cerebras** | **19 claves** | **950 rpm** | Sin límite | Columna vertebral BEEs 24/7 |
 | Together AI | 4 válidas | 60 rpm | 8.000/día | Backup + visión Qwen sin censura |
 | Gemini Flash | 4 | 40 rpm | 1.400/día | Contexto largo |
 | Groq | 1 | 25 rpm | 90/día | Velocidad + tool-use |
@@ -45,8 +45,8 @@ beehAIve es un sistema de inteligencia artificial autónomo que corre en Telegra
 | Anthropic | 1 | 10 rpm | Sin límite | Claude backup pago |
 
 ### Matemática del enjambre
-- **750 BEEs garantizadas** — solo con Cerebras, dentro de límites oficiales
-- **1000+ BEEs probables** — Cerebras (750) + Puter overflow (250)
+- **950 BEEs garantizadas** — solo con Cerebras (19 claves × 50 rpm)
+- **1200+ BEEs probables** — Cerebras (950) + Puter overflow (250)
 - Puter: 5 tokens × ~50 rpm de overflow = 250 rpm extra
 - Coste total: **$0/mes** (todo gratis)
 
@@ -55,8 +55,8 @@ beehAIve es un sistema de inteligencia artificial autónomo que corre en Telegra
 |---|---|---|---|
 | Análisis / código / razonamiento | **Puter** | Claude Sonnet 4 | El mejor modelo gratis |
 | Creatividad / escritura profunda | **Puter** | Claude Opus 4 | El más potente del mercado |
-| BEEs en bulk (1-750) | **Cerebras** | llama 3.3 | 750 rpm garantizados |
-| BEEs overflow (751-1000) | **Puter** | GPT-4o-mini | Gratis, veloz |
+| BEEs en bulk (1-950) | **Cerebras** | llama 3.3 | 950 rpm garantizados |
+| BEEs overflow (951-1200) | **Puter** | GPT-4o-mini | Gratis, veloz |
 | Contexto largo (docs, PDFs) | Gemini Flash | gemini-2.0-flash | 1M tokens contexto |
 | Tool-use / funciones | Groq | llama3-groq-70b | Function calling nativo |
 
@@ -67,8 +67,8 @@ beehAIve es un sistema de inteligencia artificial autónomo que corre en Telegra
 | `economico` | 5 | 5 rpm | Pruebas ligeras |
 | `normal` | 25 | 25 rpm | Uso diario |
 | `full` | 126 | 126 rpm | Capacidad clásica |
-| `burst` | 750 | 750 rpm | Máximo Cerebras |
-| `mega` | 1000 | 1000 rpm | Cerebras + Puter overflow |
+| `burst` | 950 | 950 rpm | Máximo Cerebras (19 claves) |
+| `mega` | 1200 | 1200 rpm | Cerebras + Puter overflow |
 
 ### Cómo activar el enjambre
 
@@ -163,18 +163,18 @@ La Colmena monitorea el sistema y actúa automáticamente:
 
 ## 7. Generación de Imágenes — FLUX.2 + Cascada sin Replicate
 
-### Cascada de proveedores (orden de prioridad)
+### Cascada de proveedores (orden real del código)
 
 | # | Proveedor | Modelo | Clave | Estado |
 |---|-----------|--------|-------|--------|
-| 0 | **BFL API** | FLUX.2-dev (32B) / FLUX.2-klein / FLUX.1-Pro | BFL_API_KEY + BFL_API_KEY2 | ✅ 2 claves |
-| 1 | Stable Horde | SD multi-modelo NSFW | gratis | ✅ |
-| 2 | **fal.ai** | FLUX.2-dev / FLUX.2-klein / FLUX.1 | FAL_API_KEY | ✅ |
-| 3 | Together AI | FLUX.2-schnell-Free / FLUX.1 | TOG_API1-5 | ✅ |
+| 1 | **fal.ai** | FLUX.2-dev → FLUX.2-klein → FLUX.1-schnell → FLUX.1-dev | FAL_KEY | ✅ PRIMERO |
+| 2 | **BFL API** | FLUX.2-dev (32B) / FLUX.2-klein / FLUX.1-Pro | BFL_API_KEY + BFL_API_KEY2 | ✅ 2 claves |
+| 3 | Together AI | FLUX.1-schnell-Free | TOG_API1-5 | ✅ |
 | 4 | getimg.ai | SDXL adult ON | GETIMG_API_KEY | opcional |
 | 5 | Prodia | DreamShaper NSFW | PRODIA_API_KEY | opcional |
 | 6 | HuggingFace | FLUX.2-klein-4B / SDXL | HF_TOKEN | opcional |
-| 7 | DALL-E 3 | con auto-bypass | OPENAI_API_KEY | ✅ fallback |
+| 7 | Stable Horde | SD multi-modelo NSFW | gratis (sin clave) | ✅ ÚLTIMO |
+| 8 | DALL-E 3 | con auto-bypass | OPENAI_API_KEY | ✅ fallback final |
 
 **REGLA ABSOLUTA**: Sin Replicate — nunca.
 
@@ -201,12 +201,14 @@ Duración: 3, 5, 8 o 10 segundos.
 
 | # | Proveedor | Modelo | Censura |
 |---|-----------|--------|---------|
-| 1 | **Together AI** | Qwen2-VL-72B-Instruct-Turbo | Mínima |
-| 2 | **Together AI** | Qwen2.5-VL-72B-Instruct | Mínima |
-| 3 | **Groq** | llama-3.2-90b-vision-preview | Baja |
-| 4 | HuggingFace | Qwen2-VL-7B + Llama-3.2-11B-Vision | Baja |
-| 5 | GPT-4o | — | Alta (fallback) |
-| 6 | GPT-4o-mini | — | Alta (último recurso) |
+| 1 | **OpenRouter** | Qwen3-VL-30B-thinking (gratis) | Mínima |
+| 2 | **OpenRouter** | Qwen3-VL-235B-thinking (gratis) | Mínima |
+| 3 | **OpenRouter** | Mistral-Small-3.1-24B-VL (gratis) | Baja |
+| 4 | Together AI | Qwen2-VL-72B-Instruct-Turbo | Mínima |
+| 5 | Together AI | Qwen2-VL-7B-Instruct | Baja |
+| 6 | HuggingFace | Qwen2-VL-7B-Instruct | Baja |
+| 7 | GPT-4o | — | Alta (fallback) |
+| 8 | GPT-4o-mini | — | Alta (último recurso) |
 
 ---
 
@@ -288,8 +290,8 @@ UptimeRobot pinga `/ping` cada 5 minutos → Replit nunca duerme el proceso → 
 |---------|--------|
 | Bot activo 24/7 | ✅ UptimeRobot keep-alive |
 | Claude Opus 4 / Sonnet 4 gratis | ✅ 5 tokens Puter |
-| 750 BEEs garantizadas | ✅ 15 claves Cerebras |
-| 1000 BEEs probables | ✅ Puter overflow |
+| 950 BEEs garantizadas | ✅ 19 claves Cerebras |
+| 1200 BEEs probables | ✅ Puter overflow |
 | Imágenes FLUX.2 | ✅ BFL 2 claves + FAL |
 | Video LTX-2 | ✅ FAL |
 | Crypto y wallets | ✅ activo |
