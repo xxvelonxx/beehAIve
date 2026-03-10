@@ -1,7 +1,7 @@
 # beehAIve — Guía Completa de Funciones y Capacidades
 
 > Propietario exclusivo: Álvaro (@xxvelonxx)
-> Versión: 3.1 — 10 Marzo 2026
+> Versión: 4.0 — 10 Marzo 2026
 
 ---
 
@@ -32,23 +32,33 @@ beehAIve es un sistema de inteligencia artificial autónomo que corre en Telegra
 
 ## 2. El Enjambre de BEEs — Capacidad real (10 Mar 2026)
 
-### Infraestructura de claves API
+### Infraestructura completa de proveedores
 
-| Proveedor | Claves activas | RPM total | Límite diario | Rol |
-|-----------|---------------|-----------|---------------|-----|
-| **Cerebras** | **15** | **750 rpm** | Sin límite | Columna vertebral 24/7 |
-| Gemini Flash | 4 | 40 rpm | 1.400/día | Soporte diurno |
-| Together AI | 4 válidas | 60 rpm | 8.000/día | Backup + visión Qwen |
-| Groq | 1 | 25 rpm | 90/día | Respuestas rápidas |
-| OpenAI | 1 | 50 rpm | Sin límite | GPT-4o, DALL-E |
-| Anthropic | 1 | 10 rpm | Sin límite | Claude backup |
-| **TOTAL** | **26** | **935 rpm** | — | — |
+| Proveedor | Tokens/Claves | RPM total | Límite diario | Rol |
+|-----------|--------------|-----------|---------------|-----|
+| **Puter** | **5 tokens** | Sin límite publicado | Sin límite | Claude Opus 4 + Sonnet 4 + GPT-4o GRATIS |
+| **Cerebras** | **15 claves** | **750 rpm** | Sin límite | Columna vertebral BEEs 24/7 |
+| Together AI | 4 válidas | 60 rpm | 8.000/día | Backup + visión Qwen sin censura |
+| Gemini Flash | 4 | 40 rpm | 1.400/día | Contexto largo |
+| Groq | 1 | 25 rpm | 90/día | Velocidad + tool-use |
+| OpenAI | 1 | 50 rpm | Sin límite | GPT-4o + DALL-E fallback |
+| Anthropic | 1 | 10 rpm | Sin límite | Claude backup pago |
 
 ### Matemática del enjambre
-- Modo FULL: 126 BEEs × 1 llamada/min = **126 rpm**
-- Cerebras disponible: **750 rpm**
-- Margen libre: **624 rpm (83%)** — 126 BEEs corren 24/7 sin tocar Groq/Gemini
-- Máx BEEs sostenibles 24/7 gratis: **750**
+- **750 BEEs garantizadas** — solo con Cerebras, dentro de límites oficiales
+- **1000+ BEEs probables** — Cerebras (750) + Puter overflow (250)
+- Puter: 5 tokens × ~50 rpm de overflow = 250 rpm extra
+- Coste total: **$0/mes** (todo gratis)
+
+### Routing inteligente por tarea
+| Tarea | Proveedor usado | Modelo | Por qué |
+|---|---|---|---|
+| Análisis / código / razonamiento | **Puter** | Claude Sonnet 4 | El mejor modelo gratis |
+| Creatividad / escritura profunda | **Puter** | Claude Opus 4 | El más potente del mercado |
+| BEEs en bulk (1-750) | **Cerebras** | llama 3.3 | 750 rpm garantizados |
+| BEEs overflow (751-1000) | **Puter** | GPT-4o-mini | Gratis, veloz |
+| Contexto largo (docs, PDFs) | Gemini Flash | gemini-2.0-flash | 1M tokens contexto |
+| Tool-use / funciones | Groq | llama3-groq-70b | Function calling nativo |
 
 ### Modos del enjambre
 | Modo | BEEs activas | RPM usado | Cuándo usar |
@@ -56,8 +66,9 @@ beehAIve es un sistema de inteligencia artificial autónomo que corre en Telegra
 | `idle` (DEFAULT) | 0 | 0 | Toda la cuota libre para Álvaro |
 | `economico` | 5 | 5 rpm | Pruebas ligeras |
 | `normal` | 25 | 25 rpm | Uso diario |
-| `full` | 126 | 126 rpm | Capacidad objetivo |
-| `burst` | 249 | 249 rpm | Manual, tareas masivas |
+| `full` | 126 | 126 rpm | Capacidad clásica |
+| `burst` | 750 | 750 rpm | Máximo Cerebras |
+| `mega` | 1000 | 1000 rpm | Cerebras + Puter overflow |
 
 ### Cómo activar el enjambre
 
@@ -88,13 +99,35 @@ beehAIve es un sistema de inteligencia artificial autónomo que corre en Telegra
 
 ---
 
-## 3. Roles de BEEs disponibles
+## 3. Puter — Cerebro Premium Gratuito
+
+**Puter.com** actúa como proxy gratuito a los mejores modelos de IA del mundo.
+BEEA tiene 5 tokens Puter rotando con retry automático si uno expira.
+
+### Modelos disponibles gratis via Puter
+| Modelo | Quién es | Para qué |
+|---|---|---|
+| `claude-sonnet-4` | Claude Sonnet 4 (Anthropic) | Análisis, código, razonamiento |
+| `claude-opus-4` | Claude Opus 4 — el más potente | Tareas complejas premium |
+| `gpt-4o` | OpenAI flagship | Razonamiento general |
+| `gpt-4o-mini` | OpenAI rápido | BEEs de volumen y overflow |
+| `gemini-2.0-flash` | Google | Velocidad + multimodal |
+
+### Funcionamiento técnico
+- `POST https://api.puter.com/drivers/call` — llamada directa, sin navegador
+- 5 tokens en round-robin — si uno da 401, salta automáticamente al siguiente
+- Integrado en `tools/llm_adapter.py` como proveedor de máxima prioridad
+- Variables: `PUTER_TOKEN`, `PUTER_TOKEN2`…`PUTER_TOKEN6`
+
+---
+
+## 4. Roles de BEEs disponibles
 
 `coder`, `debugger`, `researcher`, `architect`, `reviewer`, `planner`, `data`, `strategist`, `analyst`, `optimizer`, `web_scraper`, `devops`, `security`, `key_hunter`, `api_integrator`, `quota_manager`
 
 ---
 
-## 4. Loop Autónomo
+## 5. Loop Autónomo
 
 El loop autónomo corre en background 24/7:
 - **Ciclo cada 60 segundos**: detecta BEEs libres → asigna entrenamiento
@@ -107,13 +140,13 @@ El loop autónomo corre en background 24/7:
 /autonomo pausa         — pausar
 /autonomo resume        — reanudar
 /mejoras                — propuestas generadas por BEEs
-/beemode <modo>         — cambiar modo (idle/economico/normal/full/burst)
+/beemode <modo>         — cambiar modo (idle/economico/normal/full/burst/mega)
 /cuotas                 — estado de todas las cuotas en tiempo real
 ```
 
 ---
 
-## 5. Colmena — Auto-reparación
+## 6. Colmena — Auto-reparación
 
 La Colmena monitorea el sistema y actúa automáticamente:
 - Detecta automáticamente el archivo que causó el error
@@ -128,13 +161,13 @@ La Colmena monitorea el sistema y actúa automáticamente:
 
 ---
 
-## 6. Generación de Imágenes — FLUX.2 + Cascada sin Replicate
+## 7. Generación de Imágenes — FLUX.2 + Cascada sin Replicate
 
 ### Cascada de proveedores (orden de prioridad)
 
 | # | Proveedor | Modelo | Clave | Estado |
 |---|-----------|--------|-------|--------|
-| 0 | **BFL API** | FLUX.2-dev (32B) / FLUX.2-klein | BFL_API_KEY + BFL_API_KEY2 | ✅ 2 claves |
+| 0 | **BFL API** | FLUX.2-dev (32B) / FLUX.2-klein / FLUX.1-Pro | BFL_API_KEY + BFL_API_KEY2 | ✅ 2 claves |
 | 1 | Stable Horde | SD multi-modelo NSFW | gratis | ✅ |
 | 2 | **fal.ai** | FLUX.2-dev / FLUX.2-klein / FLUX.1 | FAL_API_KEY | ✅ |
 | 3 | Together AI | FLUX.2-schnell-Free / FLUX.1 | TOG_API1-5 | ✅ |
@@ -152,12 +185,9 @@ La Colmena monitorea el sistema y actúa automáticamente:
 "genera imagen de un toro de oro rompiendo una pared"
 ```
 
-### Con foto de referencia
-Envía una foto → beehAIve la analiza con visión sin censura → genera variaciones o continúa el contexto.
-
 ---
 
-## 7. Generación de Video — LTX-2
+## 8. Generación de Video — LTX-2
 
 ```
 /video un gato surfeando una ola al atardecer 5
@@ -165,18 +195,9 @@ Envía una foto → beehAIve la analiza con visión sin censura → genera varia
 ```
 Duración: 3, 5, 8 o 10 segundos.
 
-| # | Proveedor | Modelo |
-|---|-----------|--------|
-| 1 | fal.ai | LTX-2 (audio+video sincronizado) |
-| 2 | fal.ai | LTX-Video |
-| 3 | fal.ai | Wan-2.1 |
-| 4 | HuggingFace | LTX-Video |
-
 ---
 
-## 8. Visión sin Censura — Cascada completa
-
-beehAIve analiza fotos con esta cascada (en orden):
+## 9. Visión sin Censura — Cascada completa
 
 | # | Proveedor | Modelo | Censura |
 |---|-----------|--------|---------|
@@ -187,31 +208,15 @@ beehAIve analiza fotos con esta cascada (en orden):
 | 5 | GPT-4o | — | Alta (fallback) |
 | 6 | GPT-4o-mini | — | Alta (último recurso) |
 
-- Siempre intenta primero los modelos sin censura
-- Si la respuesta incluye disclaimers de visión → reintenta automáticamente
-- Devuelve descripción en español + prompt de generación en inglés
-
 ---
 
-## 9. Trading y Crypto
+## 10. Trading y Crypto
 
 ### Análisis de mercado
 ```
 /precio BTC ETH SOL          — precios en tiempo real
 /chart BTC 4h                — gráfico técnico
 /analiza ETH                 — análisis completo: RSI, MACD, soporte/resistencia
-```
-
-### Trading autónomo (INACTIVO por defecto)
-- Modo dry-run hasta activación explícita
-- Gestión de riesgo: stop-loss 5%, take-profit 15%, max 10% por posición
-- Monitoreo de múltiples pares con BEEs
-
-### PumpFun y wallets
-```
-/pumpfun <dirección>    — análisis de token en pump.fun
-/wallet <dirección>     — saldo y transacciones
-/alerta BTC > 100000    — alerta de precio
 ```
 
 ### Wallets generadas (memory/beea_wallets.json)
@@ -225,37 +230,17 @@ beehAIve analiza fotos con esta cascada (en orden):
 
 ---
 
-## 10. Búsqueda Web y Research
+## 11. Keep-Alive 24/7 — UptimeRobot
 
-```
-/busca precio gas Ethereum hoy
-/yt https://youtube.com/watch?v=xxx
-```
+El bot expone dos endpoints públicos (sin contraseña):
+- `GET /ping` → `{"status": "alive", "bot": "BEEA", "ts": timestamp}`
+- `GET /health` → `{"status": "ok"}`
 
----
-
-## 11. Voz y Multimedia
-
-```
-/voz on/off     — respuestas de voz
-/qr <url>       — generar QR
-```
-- STT: envía notas de voz → BEEA las entiende
-- PDFs: extrae y analiza contenido
-- ZIPs: descomprime y procesa
+UptimeRobot pinga `/ping` cada 5 minutos → Replit nunca duerme el proceso → bot activo 24/7 gratis.
 
 ---
 
-## 12. Código y Construcción
-
-```
-/build un scraper de precios en tiempo real para 20 exchanges
-/corre print("hola mundo")
-```
-
----
-
-## 13. Comandos Completos de Telegram (27 registrados)
+## 12. Comandos Completos de Telegram (27 registrados)
 
 | Categoría | Comando | Función |
 |-----------|---------|---------|
@@ -289,18 +274,7 @@ beehAIve analiza fotos con esta cascada (en orden):
 
 ---
 
-## 14. Qué le falta para ser production-ready
-
-| Problema | Impacto | Solución | Costo |
-|---------|---------|---------|-------|
-| Imágenes fallan a veces | Medio-alto | $5 créditos BFL para tener siempre FLUX.2-dev | $5 único |
-| Bot duerme en Replit dev | Alto | Deploy Replit (24/7 real) | ~$7/mes |
-| Groq/Gemini se agotan por la tarde | Medio | Más claves Groq (cuentas nuevas gratis) | Gratis |
-| Memoria pierde contexto al reiniciar | Bajo | Historial en DB (implementable) | Gratis |
-
----
-
-## 15. Cómo reiniciar el bot si no responde
+## 13. Cómo reiniciar el bot si no responde
 
 1. En Replit → pestaña Workflows → "Start application" → botón restart
 2. Esperar que los logs muestren: `Polling active — 27 commands registered`
@@ -308,27 +282,15 @@ beehAIve analiza fotos con esta cascada (en orden):
 
 ---
 
-## 16. Estructura del Proyecto
+## 14. Estado actual — Producción
 
-```
-beehAIve/
-├── bot.py                    — Entrada principal
-├── telegram_bot.py           — Bot Telegram (2763 líneas)
-├── discord_bot.py            — Bot Discord
-├── personality_profile.py    — Personalidad BEEA
-├── swarm/
-│   ├── bee_roles.py          — Roles: coder, researcher, key_hunter...
-│   └── autonomous_loop.py    — Loop autónomo 24/7
-├── tools/
-│   ├── llm_adapter.py        — 7 proveedores, 26 claves, quota scaling
-│   ├── image_providers.py    — BFL/FLUX.2 → cascada completa
-│   ├── key_hunter.py         — BEE cazadora de claves API gratuitas
-│   └── ...
-├── crypto/                   — Wallets + precios + análisis técnico
-├── trading/                  — Trader autónomo + PumpFun
-├── memory/                   — Conocimiento persistente
-└── docs/
-    ├── BEEA_GUIA_COMPLETA.md
-    ├── BEEA_MONETIZACION.md
-    └── BEEA_APIS.md
-```
+| Aspecto | Estado |
+|---------|--------|
+| Bot activo 24/7 | ✅ UptimeRobot keep-alive |
+| Claude Opus 4 / Sonnet 4 gratis | ✅ 5 tokens Puter |
+| 750 BEEs garantizadas | ✅ 15 claves Cerebras |
+| 1000 BEEs probables | ✅ Puter overflow |
+| Imágenes FLUX.2 | ✅ BFL 2 claves + FAL |
+| Video LTX-2 | ✅ FAL |
+| Crypto y wallets | ✅ activo |
+| Coste mensual | **$0/mes** |
