@@ -1,7 +1,7 @@
 # beehAIve — Guía Completa de Funciones y Capacidades
 
 > Propietario exclusivo: Álvaro (@xxvelonxx)
-> Versión: 3.0 — Marzo 2026
+> Versión: 3.1 — 10 Marzo 2026
 
 ---
 
@@ -24,41 +24,40 @@ beehAIve es un sistema de inteligencia artificial autónomo que corre en Telegra
 | Acción | Cómo hacerlo |
 |--------|-------------|
 | Hablar con ella | Escribe directamente cualquier mensaje |
-| Recordar algo | "Recuerda que prefiero X" o `/recuerda` |
+| Recordar algo | "Recuerda que prefiero X" |
 | Ver estado del sistema | `/sistema` |
 | Ver versión y estado | `/start` |
 
-### Memoria persistente
-BEEA recuerda entre sesiones:
-- Tus preferencias y estilo
-- Proyectos anteriores y su estado
-- Patrones de tus peticiones
-- Todo lo que el enjambre ha aprendido
-
 ---
 
-## 2. El Enjambre de BEEs (HiveMind) — 124 estables / 249 burst
+## 2. El Enjambre de BEEs — Capacidad real (10 Mar 2026)
 
-### Capacidad real del enjambre — Marzo 2026
+### Infraestructura de claves API
 
-| Proveedor | Claves | Concurrent/clave | BEEs estables | BEEs burst |
-|-----------|--------|-----------------|---------------|------------|
-| Together AI | 5 | 4 | **20** | 40 |
-| Cerebras | 4 | 3 | **12** | 24 |
-| Gemini | 4 | 5 | **20** | 40 |
-| Groq | 1 | 2 | **2** | 4 |
-| OpenAI | 1 | 5 | **5** | 10 |
-| Anthropic | 1 | 1 | **1** | 3 |
-| g4f (32 proveedores libres) | 32 | 2 | **64** | 128 |
-| **TOTAL** | **44** | — | **124** | **249** |
+| Proveedor | Claves activas | RPM total | Límite diario | Rol |
+|-----------|---------------|-----------|---------------|-----|
+| **Cerebras** | **15** | **750 rpm** | Sin límite | Columna vertebral 24/7 |
+| Gemini Flash | 4 | 40 rpm | 1.400/día | Soporte diurno |
+| Together AI | 4 válidas | 60 rpm | 8.000/día | Backup + visión Qwen |
+| Groq | 1 | 25 rpm | 90/día | Respuestas rápidas |
+| OpenAI | 1 | 50 rpm | Sin límite | GPT-4o, DALL-E |
+| Anthropic | 1 | 10 rpm | Sin límite | Claude backup |
+| **TOTAL** | **26** | **935 rpm** | — | — |
 
-> **124 BEEs en paralelo estable. Hasta 249 en burst. Loop autónomo usa 50, otras 74 libres para Álvaro.**
+### Matemática del enjambre
+- Modo FULL: 126 BEEs × 1 llamada/min = **126 rpm**
+- Cerebras disponible: **750 rpm**
+- Margen libre: **624 rpm (83%)** — 126 BEEs corren 24/7 sin tocar Groq/Gemini
+- Máx BEEs sostenibles 24/7 gratis: **750**
 
-### ¿Qué son las BEEs?
-- **Nombre e identidad única**: Zara, Rex, Orion... (100 identidades distintas)
-- **Rol especializado**: coder, researcher, analyst, architect, debugger, strategist...
-- **Proveedor de IA asignado**: cada BEE usa un proveedor diferente (no comparten rate limits)
-- **Habilidades acumuladas**: lo que aprendió en hibernación se carga en su prompt
+### Modos del enjambre
+| Modo | BEEs activas | RPM usado | Cuándo usar |
+|------|-------------|-----------|-------------|
+| `idle` (DEFAULT) | 0 | 0 | Toda la cuota libre para Álvaro |
+| `economico` | 5 | 5 rpm | Pruebas ligeras |
+| `normal` | 25 | 25 rpm | Uso diario |
+| `full` | 126 | 126 rpm | Capacidad objetivo |
+| `burst` | 249 | 249 rpm | Manual, tareas masivas |
 
 ### Cómo activar el enjambre
 
@@ -67,6 +66,8 @@ BEEA recuerda entre sesiones:
 /hivemind analiza el top 50 tokens y dame cuáles tienen mejor momentum
 /hivemind 20 encuentra las mejores APIs de datos crypto gratuitas
 /bees <tarea>
+/beemode full     — activar modo completo (126 BEEs)
+/beemode idle     — volver a modo silencioso
 ```
 
 **Por lenguaje natural:**
@@ -76,140 +77,119 @@ BEEA recuerda entre sesiones:
 "que 40 bees analicen el mercado de NFTs en Solana"
 ```
 
-### Comparativa de velocidad: 1 modelo solo vs HiveMind
+### Comparativa de velocidad
 
-| Tarea | 1 Modelo | HiveMind | Ganancia |
-|-------|---------|---------|---------|
-| Investigar 20 exchanges | 4 min | 3 seg | **80x** más rápido |
-| Auditar 50 archivos Python | 8 min | 4 seg | **120x** más rápido |
-| Generar 30 ideas de negocio | 5 min | 3 seg | **100x** más rápido |
-| Analizar 100 tokens | 15 min | 5 seg | **180x** más rápido |
-| Scraping de 40 webs | 2 min | 2 seg | **60x** más rápido |
-| Research de mercado (50 fuentes) | 20 min | 4 seg | **300x** más rápido |
+| Tarea | 1 Modelo solo | HiveMind (126 BEEs) | Ganancia |
+|-------|--------------|---------------------|---------|
+| Investigar 20 exchanges | 4 min | 3 seg | **80x** |
+| Auditar 50 archivos Python | 8 min | 4 seg | **120x** |
+| Analizar 100 tokens | 15 min | 5 seg | **180x** |
+| Research de mercado (50 fuentes) | 20 min | 4 seg | **300x** |
 
 ---
 
-## 3. Hibernación y Entrenamiento Autónomo
+## 3. Roles de BEEs disponibles
 
-### Cómo poner una BEE a entrenar
-```
-/hibernate coder contratos Solidity avanzados 2h
-/hibernate researcher APIs crypto sin rate limit 45m
-/hibernate analyst análisis técnico con RSI y MACD 1h
-/hibernate security hardening de bots en producción 30m
-```
-
-### Entrenamiento autónomo (sin orden tuya)
-El sistema elige automáticamente 45 temas de alta utilidad y mantiene 50 BEEs siempre entrenando cuando no hay tareas activas.
-
-### Ver habilidades acumuladas
-```
-/autonomo habilidades
-```
+`coder`, `debugger`, `researcher`, `architect`, `reviewer`, `planner`, `data`, `strategist`, `analyst`, `optimizer`, `web_scraper`, `devops`, `security`, `key_hunter`, `api_integrator`, `quota_manager`
 
 ---
 
-## 4. Loop Autónomo — 50 BEEs Siempre Activas
+## 4. Loop Autónomo
 
 El loop autónomo corre en background 24/7:
-- **Ciclo cada 60 segundos**: detecta BEEs libres → las asigna a entrenamiento
+- **Ciclo cada 60 segundos**: detecta BEEs libres → asigna entrenamiento
 - **Cada hora**: una BEE estratega analiza el bot y genera propuestas de mejora
-- **Auto-implementación**: mejoras de alto impacto/bajo esfuerzo se aplican solas
-- **Inteligencia colectiva**: lo que aprende una BEE lo saben todas las demás
+- **Circuit breaker**: si 3 fallos seguidos → pausa 5 minutos, evita quemar cuota
 
 ### Comandos
 ```
-/autonomo               — estado del loop y BEEs activas
-/autonomo pausa         — pausar el loop
+/autonomo               — estado del loop
+/autonomo pausa         — pausar
 /autonomo resume        — reanudar
-/mejoras                — ver propuestas generadas por las BEEs
-/mejoras aprobar <id>   — aprobar e implementar una mejora
-/mejoras rechazar <id>  — rechazar
+/mejoras                — propuestas generadas por BEEs
+/beemode <modo>         — cambiar modo (idle/economico/normal/full/burst)
+/cuotas                 — estado de todas las cuotas en tiempo real
 ```
 
 ---
 
-## 5. Colmena — Auto-reparación Inteligente
+## 5. Colmena — Auto-reparación
 
 La Colmena monitorea el sistema y actúa automáticamente:
-- Detecta automáticamente qué archivo causó el error
+- Detecta automáticamente el archivo que causó el error
 - Lanza **3 BEEs de reparación en paralelo** con enfoques distintos
 - La primera BEE que genera un fix válido gana
 - Instala paquetes pip faltantes automáticamente
 
 ```
-/healer         — ver estado de la Colmena
-/healer reparar — forzar ciclo de reparación manual
+/healer         — estado de la Colmena
+/healer reparar — forzar ciclo manual
 ```
 
 ---
 
-## 6. Generación de Imágenes — FLUX.2 + Cascada
+## 6. Generación de Imágenes — FLUX.2 + Cascada sin Replicate
 
-### Cascada de proveedores sin censura (orden de prioridad)
+### Cascada de proveedores (orden de prioridad)
 
 | # | Proveedor | Modelo | Clave | Estado |
 |---|-----------|--------|-------|--------|
-| 0 | **BFL API** | FLUX.2-dev (32B) / FLUX.2-klein | BFL_API_KEY | ✅ ACTIVO |
-| 1 | Stable Horde | SD multi-modelo NSFW | gratis | ✅ ACTIVO |
-| 2 | **fal.ai** | FLUX.2-dev / FLUX.2-klein / FLUX.1 | FAL_API_KEY | ✅ ACTIVO |
-| 3 | Together AI | FLUX.2-schnell-Free / FLUX.1 | TOG_API1-5 | ✅ ACTIVO |
+| 0 | **BFL API** | FLUX.2-dev (32B) / FLUX.2-klein | BFL_API_KEY + BFL_API_KEY2 | ✅ 2 claves |
+| 1 | Stable Horde | SD multi-modelo NSFW | gratis | ✅ |
+| 2 | **fal.ai** | FLUX.2-dev / FLUX.2-klein / FLUX.1 | FAL_API_KEY | ✅ |
+| 3 | Together AI | FLUX.2-schnell-Free / FLUX.1 | TOG_API1-5 | ✅ |
 | 4 | getimg.ai | SDXL adult ON | GETIMG_API_KEY | opcional |
 | 5 | Prodia | DreamShaper NSFW | PRODIA_API_KEY | opcional |
 | 6 | HuggingFace | FLUX.2-klein-4B / SDXL | HF_TOKEN | opcional |
 | 7 | DALL-E 3 | con auto-bypass | OPENAI_API_KEY | ✅ fallback |
+
+**REGLA ABSOLUTA**: Sin Replicate — nunca.
 
 ### Cómo generar imágenes
 ```
 /imagen una ciudad cyberpunk al amanecer desde un rascacielos
 /imagen retrato de mujer con ojos verdes y pelo rojo, fotorrealista
 "genera imagen de un toro de oro rompiendo una pared"
-"crea una imagen de playa tropical al atardecer"
 ```
 
 ### Con foto de referencia
-Envía una foto → beehAIve la analiza con Qwen2-VL sin censura → genera variaciones o continúa el contexto.
+Envía una foto → beehAIve la analiza con visión sin censura → genera variaciones o continúa el contexto.
 
 ---
 
 ## 7. Generación de Video — LTX-2
 
-### Cascada de video
-
-| # | Proveedor | Modelo | Clave |
-|---|-----------|--------|-------|
-| 1 | fal.ai | LTX-2 (audio+video sincronizado) | FAL_API_KEY ✅ |
-| 2 | fal.ai | LTX-Video (solo video) | FAL_API_KEY ✅ |
-| 3 | fal.ai | Wan-2.1 (alternativa) | FAL_API_KEY ✅ |
-| 4 | HuggingFace | Lightricks/LTX-Video | HF_TOKEN |
-
-### Cómo generar videos
 ```
 /video un gato surfeando una ola al atardecer 5
 /video ciudad cyberpunk con lluvia y luces de neón 8
-/video mujer bailando flamenco en escenario con humo 5
-/video explosión de colores en cámara lenta 3
 ```
 Duración: 3, 5, 8 o 10 segundos.
 
-**LTX-2 características**:
-- Primer modelo DiT con audio + video sincronizado
-- Text-to-video e image-to-video
-- 22B parámetros — calidad profesional
+| # | Proveedor | Modelo |
+|---|-----------|--------|
+| 1 | fal.ai | LTX-2 (audio+video sincronizado) |
+| 2 | fal.ai | LTX-Video |
+| 3 | fal.ai | Wan-2.1 |
+| 4 | HuggingFace | LTX-Video |
 
 ---
 
-## 8. Visión sin Censura — Qwen2-VL
+## 8. Visión sin Censura — Cascada completa
 
-beehAIve analiza fotos con modelos sin censura, **antes** que GPT-4o:
+beehAIve analiza fotos con esta cascada (en orden):
 
-1. **Qwen2-VL-72B** via Together AI (5 claves, sin censura)
-2. **Qwen2.5-VL-72B** via Together AI
-3. **Qwen2-VL-7B** via HuggingFace
-4. GPT-4o (fallback)
-5. GPT-4o-mini (fallback ligero)
+| # | Proveedor | Modelo | Censura |
+|---|-----------|--------|---------|
+| 1 | **Together AI** | Qwen2-VL-72B-Instruct-Turbo | Mínima |
+| 2 | **Together AI** | Qwen2.5-VL-72B-Instruct | Mínima |
+| 3 | **Groq** | llama-3.2-90b-vision-preview | Baja |
+| 4 | HuggingFace | Qwen2-VL-7B + Llama-3.2-11B-Vision | Baja |
+| 5 | GPT-4o | — | Alta (fallback) |
+| 6 | GPT-4o-mini | — | Alta (último recurso) |
 
-Envía una foto → beehAIve describe exactamente lo que ve + genera un prompt preciso para recrearla.
+- Siempre intenta primero los modelos sin censura
+- Si la respuesta incluye disclaimers de visión → reintenta automáticamente
+- Devuelve descripción en español + prompt de generación en inglés
 
 ---
 
@@ -222,30 +202,33 @@ Envía una foto → beehAIve describe exactamente lo que ve + genera un prompt p
 /analiza ETH                 — análisis completo: RSI, MACD, soporte/resistencia
 ```
 
-### Trading autónomo
-- Modo dry-run por defecto (sin dinero real hasta que lo actives)
-- Gestión de riesgo: stop-loss, take-profit automáticos
-- Monitoreo de 124 pares simultáneamente con BEEs
+### Trading autónomo (INACTIVO por defecto)
+- Modo dry-run hasta activación explícita
+- Gestión de riesgo: stop-loss 5%, take-profit 15%, max 10% por posición
+- Monitoreo de múltiples pares con BEEs
 
 ### PumpFun y wallets
 ```
 /pumpfun <dirección>    — análisis de token en pump.fun
-/wallet <dirección>     — saldo y transacciones de wallet
-/alerta BTC > 100000    — configurar alerta de precio
+/wallet <dirección>     — saldo y transacciones
+/alerta BTC > 100000    — alerta de precio
 ```
+
+### Wallets generadas (memory/beea_wallets.json)
+| Red | Dirección |
+|-----|-----------|
+| ETH | `0x76ACfBb578f14cB6108107663C8FF22BE515edd0` |
+| Base | `0x5Ad62254c428e5CF97F07D5F181f660C77b74c4e` |
+| BSC | `0xb99F37abE395B525F9651Fc9BA449699b4472Cac` |
+| Solana | `ApsczVHC9eEgvYh2WBww5V2aBxaMSFAMyLM1ouG78bwR` |
+| BTC | `15M8kdCRkMq3wyo2iXNzVogK3XxGDxDdtm` |
 
 ---
 
 ## 10. Búsqueda Web y Research
 
-- Búsqueda en tiempo real con DuckDuckGo (sin API key)
-- Extracción y resumen de contenido de URLs
-- Research profundo con múltiples BEEs en paralelo
-- YouTube: transcripciones y resúmenes automáticos
-
 ```
 /busca precio gas Ethereum hoy
-/research arquitecturas multi-agente para trading
 /yt https://youtube.com/watch?v=xxx
 ```
 
@@ -253,113 +236,99 @@ Envía una foto → beehAIve describe exactamente lo que ve + genera un prompt p
 
 ## 11. Voz y Multimedia
 
-- **TTS**: BEEA responde con audio en modo voz
-- **STT**: envía notas de voz y BEEA las entiende
-- **Visión Qwen**: analiza fotos sin censura
-- **PDFs**: extrae y analiza contenido
-- **ZIPs**: descomprime y procesa archivos
-- **QR**: genera códigos QR
-
 ```
-/voz on         — activar respuestas de voz
-/voz off        — desactivar
-/qr https://...  — generar QR
+/voz on/off     — respuestas de voz
+/qr <url>       — generar QR
 ```
+- STT: envía notas de voz → BEEA las entiende
+- PDFs: extrae y analiza contenido
+- ZIPs: descomprime y procesa
 
 ---
 
 ## 12. Código y Construcción
 
-- Escribe, revisa y ejecuta código en sandbox seguro
-- Genera proyectos completos desde cero
-- Analiza repositorios enteros con HiveMind
-- Self-upgrade: propone y aplica mejoras al propio código del bot
-
 ```
 /build un scraper de precios en tiempo real para 20 exchanges
-/corre print("hola mundo")   — ejecuta código Python
+/corre print("hola mundo")
 ```
 
 ---
 
-## 13. Comandos Completos de Telegram
+## 13. Comandos Completos de Telegram (27 registrados)
 
 | Categoría | Comando | Función |
 |-----------|---------|---------|
 | Core | `/start` | Menú principal |
-| Core | `/sistema` | Estado del sistema (BEEs, claves, uptime) |
+| Core | `/sistema` | Estado del sistema |
+| Core | `/ayuda` | Lista de comandos |
 | BEEs | `/bees <tarea>` | Lanzar BEEs en paralelo |
-| BEEs | `/hivemind <objetivo>` | HiveMind completo (hasta 124 BEEs) |
-| BEEs | `/hibernate <role> <tema> [tiempo]` | Poner BEE a entrenar |
-| Autónomo | `/autonomo` | Estado del loop autónomo |
-| Autónomo | `/mejoras` | Propuestas de mejora generadas |
+| BEEs | `/hivemind <objetivo>` | HiveMind completo |
+| BEEs | `/beemode <modo>` | Cambiar modo enjambre |
+| BEEs | `/cuotas` | Estado de cuotas en tiempo real |
+| BEEs | `/keys` | Inventario de claves API |
+| Autónomo | `/autonomo` | Estado del loop |
+| Autónomo | `/mejoras` | Propuestas de mejora |
 | Crypto | `/precio BTC` | Precio en tiempo real |
 | Crypto | `/chart ETH 1h` | Gráfico técnico |
-| Crypto | `/analiza SOL` | Análisis técnico completo |
-| Crypto | `/alerta BTC > 100k` | Configurar alerta de precio |
+| Crypto | `/analiza SOL` | Análisis técnico |
+| Crypto | `/alerta BTC > 100k` | Alerta de precio |
 | Crypto | `/pumpfun <addr>` | Análisis pump.fun |
 | Crypto | `/wallet <addr>` | Estado de wallet |
-| Imágenes | `/imagen <desc>` | Generar imagen (FLUX.2 → cascada) |
-| Video | `/video <desc> [s]` | Generar video con LTX-2 (audio+video) |
-| Search | `/busca <query>` | Búsqueda web en tiempo real |
-| Search | `/research <tema>` | Research profundo multi-BEE |
-| Search | `/yt <url>` | Resumir video de YouTube |
-| Código | `/build <descripción>` | Construir software completo |
-| Código | `/corre <código>` | Ejecutar Python en sandbox |
-| Multimedia | `/traduce <texto>` | Traducir a cualquier idioma |
-| Multimedia | `/qr <url>` | Generar código QR |
-| Multimedia | `/voz on/off` | Activar/desactivar respuestas de voz |
-| Mantenimiento | `/healer` | Estado de la Colmena auto-reparación |
-| Mantenimiento | `/reiniciar` | Reiniciar servicios del bot |
+| Imágenes | `/imagen <desc>` | Generar imagen FLUX.2 |
+| Video | `/video <desc> [s]` | Generar video LTX-2 |
+| Search | `/busca <query>` | Búsqueda web |
+| Search | `/yt <url>` | Resumir YouTube |
+| Código | `/build <desc>` | Construir software |
+| Código | `/corre <código>` | Ejecutar Python |
+| Multimedia | `/traduce <texto>` | Traducir |
+| Multimedia | `/qr <url>` | Generar QR |
+| Multimedia | `/voz on/off` | Respuestas de voz |
+| Mantenimiento | `/healer` | Estado auto-reparación |
+| Mantenimiento | `/reiniciar` | Reiniciar servicios |
 
 ---
 
-## 14. Estructura del Proyecto beehAIve
+## 14. Qué le falta para ser production-ready
+
+| Problema | Impacto | Solución | Costo |
+|---------|---------|---------|-------|
+| Imágenes fallan a veces | Medio-alto | $5 créditos BFL para tener siempre FLUX.2-dev | $5 único |
+| Bot duerme en Replit dev | Alto | Deploy Replit (24/7 real) | ~$7/mes |
+| Groq/Gemini se agotan por la tarde | Medio | Más claves Groq (cuentas nuevas gratis) | Gratis |
+| Memoria pierde contexto al reiniciar | Bajo | Historial en DB (implementable) | Gratis |
+
+---
+
+## 15. Cómo reiniciar el bot si no responde
+
+1. En Replit → pestaña Workflows → "Start application" → botón restart
+2. Esperar que los logs muestren: `Polling active — 27 commands registered`
+3. Si no aparece → hay un error más abajo en los logs
+
+---
+
+## 16. Estructura del Proyecto
 
 ```
 beehAIve/
-├── bot.py                          — Punto de entrada principal
-├── telegram_bot.py                 — Bot Telegram (2500+ líneas)
-├── discord_bot.py                  — Bot Discord
-├── config.py                       — Configuración global
-├── personality_profile.py          — Personalidad y filtros BEEA
+├── bot.py                    — Entrada principal
+├── telegram_bot.py           — Bot Telegram (2763 líneas)
+├── discord_bot.py            — Bot Discord
+├── personality_profile.py    — Personalidad BEEA
 ├── swarm/
-│   ├── hivemind.py                 — Orquestador del enjambre
-│   ├── agent_worker.py             — Motor de cada BEE
-│   ├── bee_identity.py             — 100 identidades únicas
-│   ├── bee_trainer.py              — Sistema de hibernación/entrenamiento
-│   ├── bee_roles.py                — Roles especializados
-│   ├── bee_tools.py                — Herramientas de las BEEs
-│   └── autonomous_loop.py         — Loop autónomo 24/7 (50 BEEs)
-├── colmena/
-│   └── monitor.py                  — Auto-reparación inteligente
+│   ├── bee_roles.py          — Roles: coder, researcher, key_hunter...
+│   └── autonomous_loop.py    — Loop autónomo 24/7
 ├── tools/
-│   ├── llm_adapter.py              — Multi-proveedor (7 proveedores, 44 claves)
-│   ├── image_providers.py          — Imágenes: BFL/FLUX.2 → cascada completa
-│   ├── video_gen.py                — Video: LTX-2 → Wan-2.1 → HF
-│   ├── image_gen.py                — Wrapper generación de imágenes
-│   ├── free_providers.py           — 32 proveedores g4f gratuitos
-│   ├── websearch.py                — Búsqueda web (DuckDuckGo/DDGS)
-│   ├── tts.py                      — Text-to-Speech
-│   ├── browser_tool.py             — Playwright, screenshots reales
-│   ├── code_sandbox.py             — Ejecución segura de Python
-│   ├── pdf_reader.py               — Análisis de PDFs
-│   └── ...                         — 20+ herramientas más
-├── crypto/
-│   ├── wallet_manager.py           — Wallets BTC/ETH/Base/BSC/Solana
-│   ├── price_feed.py               — Precios en tiempo real
-│   └── analysis.py                 — RSI, MACD, Bollinger Bands
-├── trading/
-│   ├── trading_engine.py           — Jupiter swaps en Solana
-│   ├── autonomous_trader.py        — Trader autónomo 24/7
-│   └── pumpfun.py                  — Scanner de memecoins
-├── memory/
-│   ├── long_memory.py              — Memoria persistente
-│   ├── shared_knowledge.py         — Inteligencia colectiva (pool)
-│   ├── collective_knowledge.json   — Top 200 insights del enjambre
-│   └── bee_skills/                 — Habilidades entrenadas
+│   ├── llm_adapter.py        — 7 proveedores, 26 claves, quota scaling
+│   ├── image_providers.py    — BFL/FLUX.2 → cascada completa
+│   ├── key_hunter.py         — BEE cazadora de claves API gratuitas
+│   └── ...
+├── crypto/                   — Wallets + precios + análisis técnico
+├── trading/                  — Trader autónomo + PumpFun
+├── memory/                   — Conocimiento persistente
 └── docs/
-    ├── BEEA_GUIA_COMPLETA.md      — Este archivo
-    ├── BEEA_MONETIZACION.md        — Cómo monetizar beehAIve
-    └── BEEA_APIS.md                — Claves API y configuración
+    ├── BEEA_GUIA_COMPLETA.md
+    ├── BEEA_MONETIZACION.md
+    └── BEEA_APIS.md
 ```
