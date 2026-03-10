@@ -16,7 +16,7 @@ beehAIve no es un chatbot. Es un sistema que puede ejecutar **1000+ tareas en pa
 | Proveedor | Tokens/Claves | RPM | Límite diario | Coste |
 |-----------|--------------|-----|---------------|-------|
 | **Puter** | **5 tokens** | Sin límite publicado | Sin límite | **Gratis** |
-| **Cerebras** | **15 claves** | **750 rpm** | Sin límite | **Gratis** |
+| **Cerebras** | **19 claves** | **950 rpm** | Sin límite | **Gratis** |
 | Together AI | 4 válidas | 60 rpm | 8.000/día | Gratis |
 | Gemini Flash | 4 | 40 rpm | 1.400/día | Gratis |
 | Groq | 1 | 25 rpm | 90/día | Gratis |
@@ -24,12 +24,12 @@ beehAIve no es un chatbot. Es un sistema que puede ejecutar **1000+ tareas en pa
 | Anthropic | 1 | 10 rpm | Sin límite | Pago |
 
 **Cerebro principal:** Claude Sonnet 4 + Claude Opus 4 via Puter (gratis)
-**Motor de BEEs:** Cerebras 750 rpm + Puter overflow 250 rpm
-**Visión:** Qwen2-VL-72B → Groq llama-3.2-90b → GPT-4o
+**Motor de BEEs:** Cerebras 950 rpm + Puter overflow 250 rpm
+**Visión:** OpenRouter Qwen3-VL → Together Qwen2-VL-72B → HuggingFace → GPT-4o
 
 **Capacidad de BEEs:**
-- 750 BEEs garantizadas (solo Cerebras, sin riesgo)
-- 1000+ BEEs probables (Cerebras + Puter overflow)
+- 950 BEEs garantizadas (solo Cerebras, 19 claves × 50 rpm)
+- 1200+ BEEs probables (Cerebras + Puter overflow)
 
 **Coste operativo total: $0/mes**
 
@@ -75,13 +75,13 @@ beehAIve no es un chatbot. Es un sistema que puede ejecutar **1000+ tareas en pa
 
 ## Lo que NINGUNA otra plataforma tiene
 
-1. **1000 BEEs en paralelo reales** — 750 en Cerebras + 250 en Puter overflow
+1. **1200 BEEs en paralelo reales** — 950 en Cerebras (19 claves) + 250 en Puter overflow
 2. **Claude Opus 4 gratis** — el modelo más potente del mercado, sin pagar
 3. **Claude Sonnet 4 gratis** — análisis, código, razonamiento de primer nivel
-4. **750 rpm de Cerebras gratuito** — 24/7 sin límite diario, 15 claves activas
+4. **950 rpm de Cerebras gratuito** — 24/7 sin límite diario, 19 claves activas
 5. **Auto-reparación** — 3 BEEs reparan errores en segundos sin intervención
 6. **Inteligencia colectiva** — lo que aprende una BEE lo saben todas
-7. **Visión sin censura** — Qwen2-VL-72B + Groq antes que GPT-4o
+7. **Visión sin censura** — OpenRouter Qwen3-VL + Together Qwen2-VL antes que GPT-4o
 8. **FLUX.2-dev 32B** — el modelo de imagen de mayor calidad, directo desde Telegram
 9. **Video LTX-2 con audio** — texto → video con audio sincronizado
 10. **Crypto nativo** — wallets reales, Jupiter swaps, PumpFun, alertas
@@ -205,9 +205,9 @@ beehAIve no es un chatbot. Es un sistema que puede ejecutar **1000+ tareas en pa
 
 | Métrica | beehAIve | Competidores |
 |---------|----------|--------------|
-| Agentes en paralelo | **1000 (Cerebras + Puter)** | 1–20 |
+| Agentes en paralelo | **1200 (Cerebras + Puter)** | 1–20 |
 | Modelo premium | **Claude Opus 4 GRATIS** | $20/mes Claude Pro |
-| RPM disponible | **1000+ rpm** | limitado |
+| RPM disponible | **1200+ rpm** | limitado |
 | Coste mensual | **$0** | $20–100/mes |
 | Coste por research | **$0.00** | $0–5 |
 | Auto-reparación | **✅** | ❌ |
