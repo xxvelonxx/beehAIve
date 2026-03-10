@@ -11,7 +11,7 @@ Bot de inteligencia artificial con personalidad propia corriendo en Telegram y D
   2. `docs/BEEA_GUIA_COMPLETA.md` — guía de funciones y uso real
   3. `docs/BEEA_MONETIZACION.md` — cómo hacer dinero con BEEA
   4. Hacer commit de todo y push al repo GitHub `beehAIve`
-- **REPLICATE PROHIBIDO** — Nunca usar Replicate para imágenes. Cascada: BFL/FLUX.2 → Stable Horde → FAL/FLUX.2 → Together/FLUX.2 → getimg → Prodia → HuggingFace/FLUX.2-klein → DALL-E.
+- **REPLICATE PROHIBIDO** — Nunca usar Replicate para imágenes. Cascada REAL (orden del código): FAL/FLUX.2 → BFL/FLUX.2 → Together/FLUX.2 → getimg → Prodia → HuggingFace/FLUX.2-klein → Stable Horde → DALL-E.
 - **NUNCA inventar números** — capacidad de BEEs, keys disponibles, etc. siempre leer el estado real del sistema.
 - **NUNCA auto-iniciar features** sin orden explícita de Álvaro.
 - **Regla absoluta de honestidad** — BEEA no miente sobre lo que ve (fotos, datos, capacidad).
@@ -57,10 +57,10 @@ Keep-alive 24/7 gratis via UptimeRobot pinging `/ping` cada 5 minutos.
 | `OPENAI_API_KEY` | OpenAI GPT-4o + DALL-E 3 | ✅ |
 | `GROQ_API` | Groq — Llama rápido | ✅ |
 | `TOG_API1`…`TOG_API5` | Together AI — 4 claves válidas (LLM + FLUX imágenes) | ✅ |
-| `CEREBRAS_API`…`CEREBRA_API14` | Cerebras — **15 claves → 750 rpm** (ultra-rápido, sin límite diario) | ✅ |
+| `CEREBRAS_API`…`CEREBRA_API14` | Cerebras — **19 claves → 950 rpm** (ultra-rápido, sin límite diario) | ✅ |
 | `GEMINI_API`/`2`/`3`/`5` | Gemini Flash — 4 claves → 40 rpm, 1.400/día | ✅ |
 | `ANTHROPIC_API_KEY` | Claude (backup) | ✅ |
-| `FAL_API_KEY` | fal.ai — FLUX.2 imágenes + LTX-2 video | ✅ |
+| `FAL_KEY` / `FAL_API_KEY` | fal.ai — FLUX.2 imágenes + LTX-2 video | ✅ |
 | `BFL_API_KEY` + `BFL_API_KEY2` | BFL API — FLUX.2-dev 32B (2 claves) | ✅ |
 | `SESSION_SECRET` | Web panel Flask | ✅ |
 | `GITHUB_TOKEN_ALVARO` | Push al repo beehAIve | ✅ |
@@ -85,8 +85,8 @@ core/
 tools/
   llm_adapter.py            — routing inteligente: Puter→Cerebras→Together→Groq→Gemini→OpenAI
   bypass_engine.py          — motor de bypass automático de restricciones
-  image_gen.py              — generación de imágenes (BFL → Stable Horde → FAL → cascada)
-  image_providers.py        — proveedores alternativos de imagen (FAL, Together, HuggingFace, etc.)
+  image_gen.py              — generación de imágenes (FAL/FLUX.2 primero → BFL → Together → Stable Horde → DALL-E)
+  image_providers.py        — proveedores de imagen: FAL → BFL → Together → getimg → Prodia → HF → StableHorde
   video_gen.py              — generación de video LTX-2 (fal.ai/LTX-2 → fal.ai/LTX-Video → Wan-2.1 → HF)
   browser_tool.py           — Playwright, screenshots reales
   capabilities.py           — lista de capacidades para el system prompt
@@ -166,7 +166,7 @@ builder/
 | Proveedor | Tokens/Claves | RPM total | Límite diario | Rol |
 |-----------|--------------|-----------|---------------|-----|
 | **Puter** | **5 tokens** | **sin límite publicado** | Sin límite | Claude Opus 4 / Sonnet 4 / GPT-4o GRATIS |
-| **Cerebras** | **15 claves** | **750 rpm** | Sin límite | Columna vertebral BEEs 24/7 |
+| **Cerebras** | **19 claves** | **950 rpm** | Sin límite | Columna vertebral BEEs 24/7 |
 | Together | 4 | 60 rpm | 8.000/día | Backup + visión Qwen sin censura |
 | Gemini | 4 | 40 rpm | 1.400/día | Contexto largo |
 | Groq | 1 | 25 rpm | 90/día | Velocidad + tool-use |
@@ -174,12 +174,12 @@ builder/
 | Anthropic | 1 | 10 rpm | Sin límite | Claude backup pago |
 
 **BEEs sostenibles 24/7:**
-- Garantizadas: **750** (solo Cerebras, límite oficial)
-- Probables: **1000+** (Cerebras 750 + Puter overflow 250)
+- Garantizadas: **950** (solo Cerebras, 19 claves × 50 rpm)
+- Probables: **1200+** (Cerebras 950 + Puter overflow 250)
 
 **Routing inteligente:**
 - Análisis / código / razonamiento → **Puter Claude Sonnet 4** (gratis)
-- BEEs en bulk → **Cerebras** (750 rpm garantizados)
+- BEEs en bulk → **Cerebras** (950 rpm garantizados)
 - Overflow y fallback → **Puter GPT-4o-mini** (gratis)
 
 **Keep-alive 24/7 gratis:**
