@@ -5,18 +5,23 @@
 
 ---
 
-## Claves actualmente configuradas
+## Claves actualmente configuradas (inventario real — Marzo 2026)
 
-| Variable | Servicio | Estado |
-|----------|----------|--------|
-| `DISCORD_BOT_TOKEN` | Discord | Activa |
-| `OPENAI_API_KEY` | OpenAI (chat + DALL-E) | Activa |
-| `TOG_API1` … `TOG_API5` | Together AI (imágenes + LLM) | Activa (5 claves) |
-| `CEREBRAS_API` / `CEREBRAS_API2` / `CEREBRAS_API3` | Cerebras (LLM ultra-rápido) | Activa (3 claves) |
-| `GROQ_API` | Groq (LLM rápido) | Activa |
-| `ANTHROPIC_API_KEY` | Anthropic / Claude | Activa |
-| `SESSION_SECRET` | Web panel (flask) | Activa |
-| `GITHUB_TOKEN_ALVARO` | GitHub repo beehAIve | Activa |
+| Variable | Servicio | BEEs estables |
+|----------|----------|--------------|
+| `TOG_API1`…`TOG_API5` | Together AI — LLM + FLUX imágenes | **20** (5×4) |
+| `CEREBRAS_API`, `CEREBRAS_API2`, `CEREBRAS_API3`, `CEREBRA_API4` | Cerebras — ultra-rápido | **12** (4×3) |
+| `GEMINI_API`, `GEMINI_API2`, `GEMINI_API3`, `GEMINI_API5` | Gemini Flash | **20** (4×5) |
+| `GROQ_API` | Groq | **2** (1×2) |
+| `OPENAI_API_KEY` | OpenAI GPT-4o / DALL-E 3 | **5** (1×5) |
+| `ANTHROPIC_API_KEY` | Anthropic Claude (backup) | **1** (1×1) |
+| g4f (32 proveedores libres) | Múltiples proveedores gratuitos | **64** (32×2) |
+| **TOTAL LLM** | **44 claves activas** | **124 estables / 249 burst** |
+| `FAL_API_KEY` | fal.ai — FLUX.2 imágenes + LTX-2 video | imagen/video |
+| `BFL_API_KEY` + `BFL_API_KEY2` | BFL API — FLUX.2-dev 32B (2 claves) | imagen |
+| `DISCORD_BOT_TOKEN` | Bot Discord | — |
+| `SESSION_SECRET` | Web panel Flask | — |
+| `GITHUB_TOKEN_ALVARO` | Push repo beehAIve | — |
 
 ---
 

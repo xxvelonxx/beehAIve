@@ -78,11 +78,17 @@ _IGNORE_VARS = {
     "PANEL_PASSWORD", "PANEL_PORT",
 }
 
+# Sufijos de variables que claramente NO son API keys (son URLs, IDs, etc.)
+_IGNORE_SUFFIXES = ("_BASE_URL", "_URL", "_ENDPOINT", "_HOST", "_PORT", "_ID", "_SECRET_KEY")
+
 
 def _looks_like_api_key(value: str) -> bool:
     """Heurística: ¿este valor parece una API key real?"""
     v = value.strip()
     if len(v) < 20:
+        return False
+    # Rechazar URLs — nunca son API keys
+    if v.startswith("http://") or v.startswith("https://"):
         return False
     # Prefijos conocidos de API keys reales
     known_prefixes = (
@@ -108,6 +114,9 @@ def _scan_env_for_provider(patterns: list[str]) -> list[str]:
         if var_name in _IGNORE_VARS:
             continue
         name_upper = var_name.upper()
+        # Ignorar variables que claramente no son keys (URLs, endpoints, etc.)
+        if any(name_upper.endswith(sfx) for sfx in _IGNORE_SUFFIXES):
+            continue
         if any(p.upper() in name_upper for p in patterns):
             # Puede ser coma-separado (varias keys en una variable)
             for part in var_value.split(","):
@@ -252,7 +261,7 @@ def _openai(messages: list, model: str = "gpt-4o-mini", tools: list = None) -> s
     return resp.choices[0].message.content.strip() or ""
 
 
-def _anthropic(messages: list, model: str = "claude-3-haiku-20240307") -> str:
+def _anthropic(messages: list, model: str = "claude-3-5-haiku-20241022") -> str:
     key = ANTHROPIC_KEY()
     if not key:
         raise RuntimeError("No ANTHROPIC_API_KEY")
@@ -337,11 +346,50 @@ def _fireworks(messages: list, model: str = "accounts/fireworks/models/llama-v3p
     return resp.choices[0].message.content.strip() or ""
 
 
+def _cerebras(messages: list, model: str = "llama3.1-70b") -> str:
+    """Cerebras — ultra-rápida inferencia de hardware especializado."""
+    key = CEREBRAS_KEY()
+    if not key:
+        raise RuntimeError("No CEREBRAS_API_KEY")
+    import openai
+    client = openai.OpenAI(api_key=key, base_url="https://api.cerebras.ai/v1")
+    resp = client.chat.completions.create(
+        model=model, messages=messages, max_tokens=2000, temperature=0.7
+    )
+    return resp.choices[0].message.content.strip() or ""
+
+
+def _gemini(messages: list, model: str = "gemini-2.0-flash") -> str:
+    """Gemini Flash — Google AI, rápido y con contexto largo."""
+    key = _ALL_POOLS["gemini"].next()
+    if not key:
+        raise RuntimeError("No GEMINI_API_KEY")
+    import openai
+    client = openai.OpenAI(
+        api_key=key,
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+    )
+    resp = client.chat.completions.create(
+        model=model, messages=messages, max_tokens=2000, temperature=0.7
+    )
+    return resp.choices[0].message.content.strip() or ""
+
+
 # ── Funciones de alto nivel ───────────────────────────────────────────────────
 
 def generate_with_fallback(messages: list) -> str:
-    """Cascada completa: Groq → OpenAI → Anthropic."""
+    """
+    Cascada completa por prioridad real:
+    Together(5 keys) → Cerebras(4 keys) → Gemini(4 keys) → Groq → OpenAI → Anthropic
+    Usa los proveedores más baratos primero, los premium como último recurso.
+    """
     providers = []
+    if _ALL_POOLS["together"]:
+        providers.append(("Together", lambda: _together(messages)))
+    if _ALL_POOLS["cerebras"]:
+        providers.append(("Cerebras", lambda: _cerebras(messages)))
+    if _ALL_POOLS["gemini"]:
+        providers.append(("Gemini", lambda: _gemini(messages)))
     if GROQ_KEY():
         providers.append(("Groq", lambda: _groq(messages)))
     if OPENAI_KEY():
@@ -349,7 +397,7 @@ def generate_with_fallback(messages: list) -> str:
     if ANTHROPIC_KEY():
         providers.append(("Anthropic", lambda: _anthropic(messages)))
     if not providers:
-        return "Sin proveedor LLM disponible. Configura OPENAI_API_KEY o GROQ_API."
+        return "Sin proveedor LLM disponible."
 
     last_error = None
     for name, fn in providers:
@@ -412,26 +460,63 @@ def generate_uncensored(messages: list) -> str:
 
 def generate_for_bees(messages: list, tools: list = None) -> str:
     """
-    LLM primario para BEEs — prioriza Groq (gratis + rápido).
-    Si hay tools, usa Groq function-calling nativo.
-    Fallback a OpenAI si Groq no está disponible.
+    LLM para BEEs — prioridad: velocidad + coste cero.
+    Orden: Cerebras (más rápido) → Together (5 keys) → Gemini → Groq → OpenAI
+    Si hay tools: Groq tool-use primero (soporta function-calling nativo).
     """
-    if GROQ_KEY():
+    # Con tools: Groq primero porque soporta function-calling nativo
+    if tools and GROQ_KEY():
         try:
-            model = GROQ_TOOL_MODEL if tools else GROQ_SMART_MODEL
-            result = _groq(messages, model=model, tools=tools)
+            result = _groq(messages, model=GROQ_TOOL_MODEL, tools=tools)
             if result:
                 return result
         except Exception as e:
-            logger.warning("Groq BEE falló: %s — usando OpenAI", e)
+            logger.warning("Groq tool-use BEE falló: %s", e)
 
+    # Sin tools o Groq falló: Cerebras primero (inferencia ultra-rápida)
+    if not tools and _ALL_POOLS["cerebras"]:
+        try:
+            result = _cerebras(messages)
+            if result:
+                return result
+        except Exception as e:
+            logger.warning("Cerebras BEE falló: %s", e)
+
+    # Together AI — 5 keys en rotación, buena calidad
+    if _ALL_POOLS["together"]:
+        try:
+            result = _together(messages)
+            if result:
+                return result
+        except Exception as e:
+            logger.warning("Together BEE falló: %s", e)
+
+    # Gemini Flash — 4 keys, rápido, contexto largo
+    if _ALL_POOLS["gemini"]:
+        try:
+            result = _gemini(messages)
+            if result:
+                return result
+        except Exception as e:
+            logger.warning("Gemini BEE falló: %s", e)
+
+    # Groq (sin tools)
+    if GROQ_KEY():
+        try:
+            result = _groq(messages, model=GROQ_SMART_MODEL)
+            if result:
+                return result
+        except Exception as e:
+            logger.warning("Groq BEE falló: %s", e)
+
+    # OpenAI último recurso
     if OPENAI_KEY():
         try:
             return _openai(messages, tools=tools)
         except Exception as e:
             logger.warning("OpenAI BEE falló: %s", e)
 
-    return generate_with_fallback(messages)
+    return "Sin proveedor disponible para BEE."
 
 
 def generate_for_bees_with_response(messages: list, tools: list):
@@ -466,41 +551,178 @@ def generate_for_bees_with_response(messages: list, tools: list):
     raise RuntimeError("Sin proveedor disponible para tool-use")
 
 
-# ── Smart routing por tipo de tarea ──────────────────────────────────────────
+# ── Routing inteligente por tipo de tarea ─────────────────────────────────────
+#
+#  TIERS por prioridad real:
+#   SPEED    — Cerebras  (hardware AI, ~1000 tokens/seg, sin latencia)
+#   BULK     — Together  (5 keys en rotación, coste ~cero, BEEs)
+#   CONTEXT  — Gemini Flash (128K ctx, 4 keys, multimodal)
+#   SMART    — Groq Llama 70B (rápido, open-source, financial ok)
+#   PREMIUM  — OpenAI GPT-4o (mejor razonamiento)
+#   NUANCED  — Anthropic Claude (mejor escritura, ética, análisis profundo)
+#   UNCENSORED — Together AI (sin filtros)
+#
+#  Regla: nunca gastar GPT-4o/Claude en tareas simples.
+#  Regla: usar Cerebras cuando la velocidad importa más que la calidad.
+#  Regla: usar Together para todas las BEEs (5 keys = sin límite efectivo).
+# ─────────────────────────────────────────────────────────────────────────────
 
-TASK_MODEL_MAP = {
-    "chat":             ("groq_fast",  lambda m: _groq(m, GROQ_FAST_MODEL)),
-    "price":            ("groq_fast",  lambda m: _groq(m, GROQ_FAST_MODEL)),
-    "summary":          ("groq_smart", lambda m: _groq(m, GROQ_SMART_MODEL)),
-    "analysis":         ("groq_smart", lambda m: _groq(m, GROQ_SMART_MODEL)),
-    "trading_signal":   ("groq_smart", lambda m: _groq(m, GROQ_SMART_MODEL)),
-    "code":             ("groq_tool",  lambda m: _groq(m, GROQ_TOOL_MODEL)),
-    "complex":          ("openai",     lambda m: _openai(m, "gpt-4o")),
-    "trading_strategy": ("openai",     lambda m: _openai(m, "gpt-4o")),
-    "build":            ("openai",     lambda m: _openai(m, "gpt-4o")),
-    "planning":         ("groq_smart", lambda m: _groq(m, GROQ_SMART_MODEL)),
+def _route_speed(m):
+    """Cerebras → Groq → Together — máxima velocidad, calidad secundaria."""
+    if _ALL_POOLS["cerebras"]:
+        try:
+            return _cerebras(m)
+        except Exception:
+            pass
+    if GROQ_KEY():
+        try:
+            return _groq(m, GROQ_FAST_MODEL)
+        except Exception:
+            pass
+    return _together(m)
+
+def _route_bulk(m):
+    """Together(5 keys) → Cerebras(4 keys) → Gemini — para BEEs en paralelo."""
+    if _ALL_POOLS["together"]:
+        try:
+            return _together(m)
+        except Exception:
+            pass
+    return _cerebras(m) if _ALL_POOLS["cerebras"] else generate_with_fallback(m)
+
+def _route_context(m):
+    """Gemini Flash → Together — para documentos largos (128K ctx)."""
+    if _ALL_POOLS["gemini"]:
+        try:
+            return _gemini(m)
+        except Exception:
+            pass
+    return _together(m) if _ALL_POOLS["together"] else generate_with_fallback(m)
+
+def _route_analysis(m):
+    """Together Llama → Groq → Gemini — análisis y research."""
+    if _ALL_POOLS["together"]:
+        try:
+            return _together(m, model="meta-llama/Llama-3.3-70B-Instruct-Turbo")
+        except Exception:
+            pass
+    if GROQ_KEY():
+        try:
+            return _groq(m, GROQ_SMART_MODEL)
+        except Exception:
+            pass
+    return _gemini(m) if _ALL_POOLS["gemini"] else generate_with_fallback(m)
+
+def _route_code(m):
+    """Groq tool-use → GPT-4o → Together — para código con function-calling."""
+    if GROQ_KEY():
+        try:
+            return _groq(m, GROQ_TOOL_MODEL)
+        except Exception:
+            pass
+    if OPENAI_KEY():
+        try:
+            return _openai(m, "gpt-4o-mini")
+        except Exception:
+            pass
+    return generate_with_fallback(m)
+
+def _route_complex(m):
+    """GPT-4o → Together Llama — razonamiento complejo, matemáticas, planificación."""
+    if OPENAI_KEY():
+        try:
+            return _openai(m, "gpt-4o")
+        except Exception:
+            pass
+    if _ALL_POOLS["together"]:
+        try:
+            return _together(m, model="meta-llama/Llama-3.3-70B-Instruct-Turbo")
+        except Exception:
+            pass
+    return generate_with_fallback(m)
+
+def _route_creative(m):
+    """Anthropic Claude → Together → GPT-4o — escritura, creatividad, matices."""
+    if ANTHROPIC_KEY():
+        try:
+            return _anthropic(m, model="claude-3-5-haiku-20241022")
+        except Exception:
+            pass
+    if _ALL_POOLS["together"]:
+        try:
+            return _together(m, model="NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO")
+        except Exception:
+            pass
+    return generate_with_fallback(m)
+
+
+TASK_MODEL_MAP: dict = {
+    # ── Velocidad crítica ──────────────────────────────────────────────────────
+    "speed":            ("cerebras",   _route_speed),
+    "ping":             ("cerebras",   _route_speed),
+    "quick":            ("cerebras",   _route_speed),
+
+    # ── Chat y conversación general ───────────────────────────────────────────
+    "chat":             ("cerebras",   _route_speed),
+    "conversation":     ("cerebras",   _route_speed),
+
+    # ── BEEs en paralelo (bulk) ────────────────────────────────────────────────
+    "bulk":             ("together",   _route_bulk),
+    "bee":              ("together",   _route_bulk),
+    "parallel":         ("together",   _route_bulk),
+    "swarm":            ("together",   _route_bulk),
+
+    # ── Contexto largo / documentos ───────────────────────────────────────────
+    "long_context":     ("gemini",     _route_context),
+    "document":         ("gemini",     _route_context),
+    "pdf":              ("gemini",     _route_context),
+    "book":             ("gemini",     _route_context),
+
+    # ── Research y análisis ───────────────────────────────────────────────────
+    "analysis":         ("together",   _route_analysis),
+    "research":         ("together",   _route_analysis),
+    "summary":          ("gemini",     _route_context),
+    "translation":      ("gemini",     _route_context),
+    "trading_signal":   ("together",   _route_analysis),
+
+    # ── Código y herramientas ─────────────────────────────────────────────────
+    "code":             ("groq_tool",  _route_code),
+    "debug":            ("groq_tool",  _route_code),
+    "tool_use":         ("groq_tool",  _route_code),
+
+    # ── Razonamiento complejo ─────────────────────────────────────────────────
+    "complex":          ("openai_4o",  _route_complex),
+    "reasoning":        ("openai_4o",  _route_complex),
+    "planning":         ("openai_4o",  _route_complex),
+    "strategy":         ("openai_4o",  _route_complex),
+    "trading_strategy": ("openai_4o",  _route_complex),
+    "build":            ("openai_4o",  _route_complex),
+
+    # ── Escritura creativa y matices ──────────────────────────────────────────
+    "creative":         ("claude",     _route_creative),
+    "writing":          ("claude",     _route_creative),
+    "story":            ("claude",     _route_creative),
+
+    # ── Sin censura ───────────────────────────────────────────────────────────
     "uncensored":       ("together",   generate_uncensored),
+    "explicit":         ("together",   generate_uncensored),
+    "nsfw":             ("together",   generate_uncensored),
 }
 
 
 def generate_smart(messages: list, task_type: str = "chat") -> str:
-    tier_name, primary_fn = TASK_MODEL_MAP.get(task_type, ("groq_smart", lambda m: _groq(m, GROQ_SMART_MODEL)))
-
-    # Verificar que el proveedor primario esté disponible
-    has_provider = (
-        (tier_name.startswith("groq") and GROQ_KEY()) or
-        (tier_name.startswith("openai") and OPENAI_KEY()) or
-        (tier_name == "together" and TOGETHER_KEY()) or
-        tier_name not in ("groq_fast", "groq_smart", "groq_tool", "openai", "together")
-    )
-
-    if has_provider:
-        try:
-            result = primary_fn(messages)
-            if result:
-                return result
-        except Exception as e:
-            logger.warning("Smart routing primary (%s) failed: %s", tier_name, e)
+    """
+    Routing inteligente: elige el modelo óptimo por tipo de tarea.
+    Nunca gasta GPT-4o en tareas simples.
+    Prioriza velocidad y coste cero cuando la calidad no es crítica.
+    """
+    _, primary_fn = TASK_MODEL_MAP.get(task_type, ("cerebras", _route_speed))
+    try:
+        result = primary_fn(messages)
+        if result:
+            return result
+    except Exception as e:
+        logger.warning("Smart routing [%s] falló: %s — usando fallback", task_type, e)
 
     return generate_with_fallback(messages)
 

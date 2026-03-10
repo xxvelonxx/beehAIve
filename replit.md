@@ -26,7 +26,9 @@ Bot de inteligencia artificial con personalidad propia corriendo en Telegram y D
 - **discord.py 2.7** — Discord
 - **OpenAI** — GPT-4o / DALL-E 3 / Whisper
 - **Groq** — Llama 3.1/3.3 (respuestas rápidas, fallback a OpenAI si 429)
-- **Replicate** — Flux Schnell (imágenes sin restricciones)
+- **BFL API** — FLUX.2-dev (32B) / FLUX.2-klein — máxima calidad de imagen
+- **fal.ai** — FLUX.2 + LTX-2 video (audio+video sincronizado)
+- **Gemini Flash** — 4 claves (GEMINI_API/2/3/5)
 - **web3 / solders / bit** — wallets crypto (ETH, Base, BSC, Solana, BTC)
 - **ta / pandas / matplotlib / mplfinance** — análisis técnico + charts
 - **Playwright** — browser automation + screenshots
@@ -45,13 +47,19 @@ El bot corre Telegram en polling mode + Discord en paralelo. Ambos comparten el 
 
 ## Variables de entorno requeridas
 
-| Variable | Descripción |
-|---|---|
-| `DISCORD_BOT_TOKEN` | Token del bot de Discord |
-| `OPENAI_API_KEY` | OpenAI (chat + imágenes DALL-E) |
-| `GROQ_API` | Groq (respuestas rápidas) |
-| `REPLICATE_API_TOKEN` | Replicate (imágenes Flux sin restricciones) |
-| `SESSION_SECRET` | Secreto de sesión web |
+| Variable | Descripción | Estado |
+|---|---|---|
+| `DISCORD_BOT_TOKEN` | Bot Discord | ✅ |
+| `OPENAI_API_KEY` | OpenAI GPT-4o + DALL-E 3 | ✅ |
+| `GROQ_API` | Groq — Llama rápido | ✅ |
+| `TOG_API1`…`TOG_API5` | Together AI — 5 claves (LLM + FLUX imágenes) | ✅ |
+| `CEREBRAS_API`…`CEREBRAS_API3` + `CEREBRA_API4` | Cerebras — 4 claves (ultra-rápido) | ✅ |
+| `GEMINI_API`/`2`/`3`/`5` | Gemini Flash — 4 claves | ✅ |
+| `ANTHROPIC_API_KEY` | Claude (backup) | ✅ |
+| `FAL_API_KEY` | fal.ai — FLUX.2 imágenes + LTX-2 video | ✅ |
+| `BFL_API_KEY` + `BFL_API_KEY2` | BFL API — FLUX.2-dev 32B (2 claves) | ✅ |
+| `SESSION_SECRET` | Web panel Flask | ✅ |
+| `GITHUB_TOKEN_ALVARO` | Push al repo beehAIve | ✅ |
 
 ---
 

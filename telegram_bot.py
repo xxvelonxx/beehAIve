@@ -1291,6 +1291,43 @@ async def _cmd_healer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines)[:4000], reply_markup=MENU_KEYBOARD)
 
 
+async def _cmd_ghost(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Ghost Mode — hace a BEEA y BEEs invisibles, sin huella, no rastreables.
+    /ghost on    — activa
+    /ghost off   — desactiva
+    /ghost        — estado actual
+    """
+    from tools import ghost_mode
+    args = " ".join(context.args or []).strip().lower()
+
+    if args in ("on", "activar", "start", "encender"):
+        ghost_mode.activate()
+        await update.message.reply_text(
+            "👻 Ghost mode ACTIVADO.\n\n"
+            "Lo que cambia ahora:\n"
+            "• Todos mis requests web tienen User-Agent e IP ficticias\n"
+            "• El timing de mis respuestas simula comportamiento humano\n"
+            "• Nunca menciono qué modelo de IA me ejecuta\n"
+            "• Mis identidades de sesión rotan cada 50 requests\n"
+            "• Auto-rotación cada 30 minutos\n\n"
+            "Soy invisible.",
+            reply_markup=MENU_KEYBOARD,
+        )
+    elif args in ("off", "desactivar", "stop", "apagar"):
+        ghost_mode.deactivate()
+        await update.message.reply_text(
+            "Ghost mode desactivado. Operando en modo normal.",
+            reply_markup=MENU_KEYBOARD,
+        )
+    else:
+        await update.message.reply_text(
+            ghost_mode.status_text(),
+            parse_mode="Markdown",
+            reply_markup=MENU_KEYBOARD,
+        )
+
+
 async def _cmd_colmena(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from colmena.monitor import colmena as _colmena
     st = _colmena.status()
@@ -2348,6 +2385,8 @@ def _build_app(token: str, webhook: bool = False):
     app.add_handler(CommandHandler("sabes",      _cmd_sabes))
     app.add_handler(CommandHandler("sistema",    _cmd_sistema))
     app.add_handler(CommandHandler("healer",     _cmd_healer))
+    app.add_handler(CommandHandler("ghost",      _cmd_ghost))
+    app.add_handler(CommandHandler("fantasma",   _cmd_ghost))
     app.add_handler(CommandHandler("colmena",    _cmd_colmena))
     app.add_handler(CommandHandler("bee",        _cmd_bee))
     app.add_handler(CommandHandler("tasks",      _cmd_tasks))
