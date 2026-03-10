@@ -369,6 +369,11 @@ REFUSAL_PHRASES_VISION = [
     "si me la mandas", "no puedo ver ni comentar",
     "describeme la foto", "describe the image", "can't view",
     "unable to view", "unable to see", "no soy capaz de ver",
+    "api de reconocimiento", "reconocimiento de texto en imágenes",
+    "capacidad para comprender y visualizar", "falta de acceso a una api",
+    "mejorar mi integración con herramientas", "para entender contenido visual",
+    "se ve limitada por mi falta", "necesitaría mejorar mi capacidad",
+    "pudieras agregar o mejorar esta función",
 ]
 
 
@@ -403,7 +408,7 @@ def _try_qwen_vision(img_b64: str, caption: str = "") -> dict | None:
     ]
     tog_keys = [v for k, v in _os.environ.items()
                 if ("TOG" in k.upper() or "TOGETHER" in k.upper())
-                and len(v) >= 20 and " " not in v]
+                and v.startswith("tgp_v1_") and len(v) >= 20]
 
     for key in tog_keys[:3]:
         for model in qwen_models:
@@ -488,6 +493,33 @@ def _analyze_photo_b64(img_b64: str, caption: str = "") -> dict:
             return result
     except Exception as e:
         logger.warning("Qwen vision error: %s", e)
+
+    # Paso 1.5: Groq visión — llama-3.2-90b-vision (gratis, mínima censura)
+    try:
+        import os as _os2
+        groq_key = _os2.environ.get("GROQ_API") or _os2.environ.get("GROQ_API_KEY", "")
+        if groq_key:
+            import openai as _groq_oai
+            groq_client = _groq_oai.OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
+            groq_resp = groq_client.chat.completions.create(
+                model="llama-3.2-90b-vision-preview",
+                messages=[{"role": "user", "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}", "detail": "auto"}},
+                    {"type": "text", "text": vision_text},
+                ]}],
+                max_tokens=800,
+            )
+            groq_raw = groq_resp.choices[0].message.content.strip()
+            if groq_raw and len(groq_raw) > 20 and not _is_vision_refusal(groq_raw):
+                logger.info("Groq vision OK (llama-3.2-90b)")
+                desc2, gen2 = groq_raw, groq_raw
+                if "PARTE 2" in groq_raw:
+                    parts2 = groq_raw.split("PARTE 2")
+                    desc2 = parts2[0].replace("PARTE 1", "").strip(" -:\n")
+                    gen2  = parts2[1].strip(" -:\n")
+                return {"description": desc2, "gen_prompt": gen2, "provider": "Groq/llama-3.2-90b-vision"}
+    except Exception as _ge:
+        logger.debug("Groq vision: %s", _ge)
 
     # Paso 2: GPT-4o
     raw = None
@@ -723,16 +755,19 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             provider = vision.get("provider", "")
             if description and description not in ("foto sin descripción disponible",):
                 prompt_for_beea = (
-                    f"Álvaro te acaba de mandar una foto. Aquí está lo que ves en ella: {description}."
+                    f"Álvaro te acaba de mandar una foto y TÚ YA LA VISTE con tu sistema de visión. "
+                    f"Esto es lo que ves: {description}."
                     + (f" Él escribió: '{caption}'." if caption else "")
-                    + " Comenta la foto de forma natural y directa. No menciones procesos de IA."
+                    + " Responde de forma natural y directa sobre lo que ves. "
+                    + "NUNCA digas que no puedes ver imágenes ni que te falta acceso — YA LA VISTE. "
+                    + "No menciones procesos de IA, APIs ni herramientas."
                 )
             else:
                 # caption fallback — sin descripción real
                 prompt_for_beea = (
                     f"Álvaro te mandó una foto"
                     + (f" con el mensaje: '{caption}'" if caption else "")
-                    + ". Respóndele de forma natural."
+                    + ". Respóndele de forma natural. NUNCA digas que no puedes ver imágenes."
                 )
 
             reply = _chat(prompt_for_beea)
