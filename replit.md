@@ -24,8 +24,9 @@ Bot de inteligencia artificial con personalidad propia corriendo en Telegram y D
 - **Python 3.11** — lenguaje principal
 - **python-telegram-bot 22.6** — Telegram
 - **discord.py 2.7** — Discord
+- **Puter.com** — proxy GRATIS a Claude Sonnet 4 / Claude Opus 4 / GPT-4o (5 tokens rotando)
 - **OpenAI** — GPT-4o / DALL-E 3 / Whisper
-- **Groq** — Llama 3.1/3.3 (respuestas rápidas, fallback a OpenAI si 429)
+- **Groq** — Llama 3.1/3.3 (respuestas rápidas, fallback)
 - **BFL API** — FLUX.2-dev (32B) / FLUX.2-klein — máxima calidad de imagen
 - **fal.ai** — FLUX.2 + LTX-2 video (audio+video sincronizado)
 - **Gemini Flash** — 4 claves (GEMINI_API/2/3/5)
@@ -43,17 +44,20 @@ python bot.py
 
 El bot corre Telegram en polling mode + Discord en paralelo. Ambos comparten el mismo `conversation_mode` (misma memoria, mismos intents).
 
+Keep-alive 24/7 gratis via UptimeRobot pinging `/ping` cada 5 minutos.
+
 ---
 
 ## Variables de entorno requeridas
 
 | Variable | Descripción | Estado |
 |---|---|---|
+| `PUTER_TOKEN`…`PUTER_TOKEN6` | Puter.com — Claude Sonnet 4 / Opus 4 / GPT-4o GRATIS (5 tokens activos) | ✅ |
 | `DISCORD_BOT_TOKEN` | Bot Discord | ✅ |
 | `OPENAI_API_KEY` | OpenAI GPT-4o + DALL-E 3 | ✅ |
 | `GROQ_API` | Groq — Llama rápido | ✅ |
 | `TOG_API1`…`TOG_API5` | Together AI — 4 claves válidas (LLM + FLUX imágenes) | ✅ |
-| `CEREBRAS_API`…`CEREBRA_API12` | Cerebras — **15 claves → 750 rpm** (ultra-rápido, sin límite diario) | ✅ |
+| `CEREBRAS_API`…`CEREBRA_API14` | Cerebras — **15 claves → 750 rpm** (ultra-rápido, sin límite diario) | ✅ |
 | `GEMINI_API`/`2`/`3`/`5` | Gemini Flash — 4 claves → 40 rpm, 1.400/día | ✅ |
 | `ANTHROPIC_API_KEY` | Claude (backup) | ✅ |
 | `FAL_API_KEY` | fal.ai — FLUX.2 imágenes + LTX-2 video | ✅ |
@@ -79,9 +83,9 @@ core/
   state.py                  — estado global del proyecto
 
 tools/
-  llm_adapter.py            — routing inteligente OpenAI/Groq/Anthropic
+  llm_adapter.py            — routing inteligente: Puter→Cerebras→Together→Groq→Gemini→OpenAI
   bypass_engine.py          — motor de bypass automático de restricciones
-  image_gen.py              — generación de imágenes (Stable Horde → FAL → Together → getimg → Prodia → HF → DALL-E)
+  image_gen.py              — generación de imágenes (BFL → Stable Horde → FAL → cascada)
   image_providers.py        — proveedores alternativos de imagen (FAL, Together, HuggingFace, etc.)
   video_gen.py              — generación de video LTX-2 (fal.ai/LTX-2 → fal.ai/LTX-Video → Wan-2.1 → HF)
   browser_tool.py           — Playwright, screenshots reales
@@ -92,6 +96,11 @@ tools/
   pdf_reader.py             — lectura y análisis de PDFs
   self_modify.py            — auto-modificación de código
   zip_analyzer.py           — análisis de archivos ZIP
+
+web_panel/
+  app.py                    — panel web Flask (puerto 8080)
+                              /ping  → keep-alive para UptimeRobot (público, sin auth)
+                              /health → alias de /ping
 
 crypto/
   wallet_manager.py         — wallets BTC/ETH/Base/BSC/Solana
@@ -114,7 +123,7 @@ memory/
   learner_enabled.txt       — existe y contiene "1" solo si el learner está activo
 
 swarm/
-  swarm_manager.py          — gestor de hasta 50 BEES en paralelo
+  swarm_manager.py          — gestor de hasta 1000 BEES en paralelo
   agent_worker.py           — worker individual de BEE
   bee_roles.py              — roles: planner, coder, researcher, etc.
 
@@ -142,13 +151,39 @@ builder/
 
 ---
 
-## Comandos Telegram (22 registrados)
+## Comandos Telegram (27 registrados)
 
-`/start` `/menu` `/ayuda` `/wallet` `/precio` `/grafico` `/pumpfun` `/trading` `/alerta` `/bees` `/build` `/imagen` `/busca` `/traduce` `/qr` `/yt` `/corre` `/screenshot` `/aprende` `/sabes` `/sistema` `/voz`
+`/start` `/menu` `/ayuda` `/wallet` `/precio` `/grafico` `/pumpfun` `/trading` `/alerta` `/bees` `/build` `/imagen` `/busca` `/traduce` `/qr` `/yt` `/corre` `/screenshot` `/aprende` `/sabes` `/sistema` `/voz` `/hivemind` `/beemode` `/cuotas` `/keys` `/autonomo`
 
 ## Comandos Discord
 
 `!ayuda` `!panel` `!wallet` `!precio` `!grafico` `!pumpfun` `!trading` `!alerta` `!compra` `!vende` `!screenshot` `!bees` `!aprende` `!sabes` `!build` `!imagen` `!busca` `!traduce` `!qr` `!yt` `!corre` `!sistema` `!setup`
+
+---
+
+## Capacidad del enjambre (estado actual — 10 Mar 2026)
+
+| Proveedor | Tokens/Claves | RPM total | Límite diario | Rol |
+|-----------|--------------|-----------|---------------|-----|
+| **Puter** | **5 tokens** | **sin límite publicado** | Sin límite | Claude Opus 4 / Sonnet 4 / GPT-4o GRATIS |
+| **Cerebras** | **15 claves** | **750 rpm** | Sin límite | Columna vertebral BEEs 24/7 |
+| Together | 4 | 60 rpm | 8.000/día | Backup + visión Qwen sin censura |
+| Gemini | 4 | 40 rpm | 1.400/día | Contexto largo |
+| Groq | 1 | 25 rpm | 90/día | Velocidad + tool-use |
+| OpenAI | 1 | 50 rpm | Sin límite | GPT-4o + DALL-E fallback |
+| Anthropic | 1 | 10 rpm | Sin límite | Claude backup pago |
+
+**BEEs sostenibles 24/7:**
+- Garantizadas: **750** (solo Cerebras, límite oficial)
+- Probables: **1000+** (Cerebras 750 + Puter overflow 250)
+
+**Routing inteligente:**
+- Análisis / código / razonamiento → **Puter Claude Sonnet 4** (gratis)
+- BEEs en bulk → **Cerebras** (750 rpm garantizados)
+- Overflow y fallback → **Puter GPT-4o-mini** (gratis)
+
+**Keep-alive 24/7 gratis:**
+- UptimeRobot pinga `/ping` cada 5 min → bot nunca duerme
 
 ---
 
@@ -178,123 +213,21 @@ BEEA puede activar sus herramientas directamente desde el chat usando señales:
 | `[SEARCH: consulta]` | Busca en internet y añade resultados |
 | `[CODE: código python]` | Ejecuta código y añade output |
 
-El interceptor `_process_tool_signals()` en `telegram_bot.py` detecta estas señales, ejecuta las herramientas y entrega el resultado real antes de enviar la respuesta.
-
 ---
 
-## Sistema de bypass de restricciones
+## LLM Routing — Puter primero
 
-`tools/bypass_engine.py` — cuando cualquier API bloquea un request:
-1. Reescribe el prompt con hasta 5 variantes automáticas
-2. Prueba con framing artístico, descripción indirecta, etc.
-3. Cambia de proveedor (Groq ↔ OpenAI) automáticamente
-4. Para imágenes: Replicate/Flux primero, luego cascada de proveedores
-5. Siempre entrega resultado o error técnico honesto — nunca discurso moral
+`tools/llm_adapter.py` — prioridad real:
 
-`personality_profile.py` — `is_forbidden_response()` detecta y bloquea cualquier texto de asistente genérico antes de que llegue a Álvaro.
-
----
-
-## Trading autónomo
-
-- **INACTIVO por defecto** — requiere activación explícita de Álvaro
-- Cuando activo: escanea cada 5min, PumpFun cada 3min
-- Auto-compra si score PumpFun ≥ 75
-- Riesgo: max 10% por posición, stop loss 5%, take profit 15%
-- Estado persistido en `memory/trader_enabled.txt`
-
----
-
-## Generación de imágenes — FLUX.2 + cascada
-
-**REGLA ABSOLUTA**: Sin Replicate. `tools/image_providers.py` cascada en orden:
-
-| # | Proveedor | Modelo | Clave |
-|---|-----------|--------|-------|
-| 0 | BFL API | FLUX.2-dev / FLUX.2-klein / FLUX.1-Pro | BFL_API_KEY |
-| 1 | Stable Horde | SD multi-modelo NSFW | gratis |
-| 2 | fal.ai | FLUX.2-dev / FLUX.2-klein / FLUX.1-schnell | FAL_KEY |
-| 3 | Together AI | FLUX.2-schnell-Free / FLUX.1-schnell-Free | TOG_API1-5 |
-| 4 | getimg.ai | SDXL adult ON | GETIMG_API_KEY |
-| 5 | Prodia | DreamShaper NSFW | PRODIA_API_KEY |
-| 6 | HuggingFace | FLUX.2-klein-4B / FLUX.1-schnell / SDXL | HF_TOKEN |
-| 7 | DALL-E 3 | con auto-bypass de prompt | OPENAI_API_KEY |
-
-Para añadir FLUX.2 máxima calidad: añadir `BFL_API_KEY` como secreto (registrarse en https://api.bfl.ai)
-
----
-
-## Generación de Video — LTX-2
-
-`tools/video_gen.py` — cascada:
-1. **LTX-2 via fal.ai** — audio+video sincronizado, mejor calidad (FAL_KEY requerido)
-2. **LTX-Video via fal.ai** — solo video, alta calidad (FAL_KEY)
-3. **Wan-2.1 via fal.ai** — open source alternativo (FAL_KEY)
-4. **HuggingFace** — gratuito, menor calidad
-
-Comando: `/video <descripción> [3|5|8|10]`
-Sin FAL_KEY → mensaje con instrucciones para conseguirla gratis en fal.ai
-
----
-
-## Visión de fotos sin censura — Cascada completa
-
-`_try_qwen_vision()` + `_analyze_photo_b64()` en `telegram_bot.py`:
-1. **Qwen2-VL-72B-Instruct-Turbo** via Together AI (sin censura — solo keys `tgp_v1_`)
-2. **Qwen2.5-VL-72B** via Together AI
-3. **Groq llama-3.2-90b-vision-preview** (gratis, baja censura) — AÑADIDO 10 Mar
-4. **Qwen2-VL-7B** via HuggingFace
-5. **GPT-4o** fallback
-6. **GPT-4o-mini** fallback ligero
-
-Bug corregido 10 Mar: Together filtraba keys expiradas (`key_CYtubx...`). Ahora solo acepta `tgp_v1_` prefix.
-Bug corregido 10 Mar: LLM de chat añadía disclaimers de visión. Prompt reforzado con instrucción explícita.
-
-Siempre retorna description (español) + gen_prompt (inglés para imágenes nuevas).
-
----
-
-## Handler de fotos con visión IA
-
-`handle_photo` en `telegram_bot.py`:
-- Cuando Álvaro manda una foto: Qwen2-VL (primero) o GPT-4o la analiza sin censura
-- Si el caption tiene keywords de generación → genera imagen nueva
-- Descripción guardada en `_LAST_PHOTO_CONTEXT` para mensajes siguientes
-- Si no hay instrucción → BEEA comenta la foto naturalmente
-
----
-
-## Formato de salida del orquestador
-
-`_format_task_output()` en `telegram_bot.py` — extrae contenido legible de cualquier resultado del orquestador:
-- Busca `message` → `full_analysis` → `analysis` → `result` → `error`
-- Errores técnicos comunes → respuesta natural en español
-- Nunca muestra dicts Python crudos al usuario
-
----
-
-## Capacidad del enjambre (estado actual — 10 Mar 2026)
-
-| Proveedor | Claves | RPM total | Límite diario |
-|-----------|--------|-----------|---------------|
-| **Cerebras** | **15** | **750 rpm** | Sin límite — columna vertebral |
-| Together | 4 | 60 rpm | 8,000/día |
-| Gemini | 4 | 40 rpm | 1,400/día |
-| Groq | 1 | 25 rpm | 90/día |
-| OpenAI | 1 | 50 rpm | Sin límite |
-| Anthropic | 1 | 10 rpm | Sin límite |
-| **TOTAL** | **26** | **935 rpm** | — |
-
-**Modos del enjambre:**
-- `idle` (DEFAULT) — 0 BEEs entrenando, toda la cuota libre para Álvaro
-- `economico` — 5 BEEs, 5 rpm
-- `normal` — 25 BEEs, 25 rpm
-- `full` — 126 BEEs, 126 rpm (objetivo)
-- `burst` — 249 BEEs, manual solo
-
-**Matemática FULL:** 126 BEEs × 1 rpm = 126 rpm ≪ 750 rpm disponibles → **83% margen libre**
-
-**Imágenes:** BFL FLUX.2 (2 claves) + FAL.ai (1 clave) — cascada sin Replicate
+| Tarea | Proveedor | Modelo | Coste |
+|---|---|---|---|
+| Análisis / código / razonamiento | Puter | Claude Sonnet 4 | Gratis |
+| Creatividad / escritura profunda | Puter | Claude Opus 4 | Gratis |
+| BEEs en bulk (750+) | Cerebras | llama 3.3 | Gratis |
+| Overflow BEEs (251-1000) | Puter | GPT-4o-mini | Gratis |
+| Contexto largo (>32K) | Gemini Flash | gemini-2.0-flash | Gratis |
+| Tool-use / function calling | Groq | llama3-groq-70b | Gratis |
+| Imágenes | BFL FLUX.2-dev | — | $0.03/img |
 
 ---
 
@@ -305,3 +238,4 @@ Siempre retorna description (español) + gen_prompt (inglés para imágenes nuev
 3. Configurar las variables de entorno (ver tabla arriba)
 4. Instalar Playwright: `playwright install chromium`
 5. Ejecutar: `python bot.py`
+6. Configurar UptimeRobot con `/ping` endpoint para keep-alive 24/7
