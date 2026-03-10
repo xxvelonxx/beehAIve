@@ -897,13 +897,24 @@ async def _cmd_hivemind(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Dime qué objetivo tiene el enjambre.", reply_markup=MENU_KEYBOARD)
         return
 
+    # Aviso de cuota antes de ejecutar
+    try:
+        from tools.llm_adapter import format_quota_warning
+        quota_info = format_quota_warning(n_bees, calls_per_bee=4)
+        await update.message.reply_text(
+            f"Estimación de la tarea:\n{quota_info}",
+            reply_markup=MENU_KEYBOARD,
+        )
+    except Exception:
+        pass
+
     # Guardar chat_id para notificaciones de progreso
     if update.effective_chat:
         _ALVARO_CHAT_ID = update.effective_chat.id
         _BOT_INSTANCE = context.bot
 
     await update.message.reply_text(
-        f"🐝 HiveMind activado — {n_bees} BEEs en paralelo\n"
+        f"HiveMind activado — {n_bees} BEEs en paralelo\n"
         f"Objetivo: {goal[:100]}\n\n"
         "Planificando subtareas...",
         reply_markup=MENU_KEYBOARD,
@@ -1272,6 +1283,134 @@ async def _cmd_sabes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def _cmd_sistema(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_message_text(update, context, "status del sistema")
+
+
+async def _cmd_keys(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /keys            — lista todos los proveedores conocidos + estado de integración
+    /keys status     — mismo que /keys
+    /keys cazar      — lanza BEE key_hunter a buscar nuevos providers ahora
+    /keys integrar X — instrucciones para integrar el proveedor X
+    """
+    args = " ".join(context.args or []).strip().lower()
+
+    from tools.key_hunter import key_hunter, format_known_providers_report, get_integration_instructions
+
+    if args in ("", "status", "estado"):
+        report = format_known_providers_report()
+        await update.message.reply_text(report[:4000], reply_markup=MENU_KEYBOARD)
+
+    elif args in ("cazar", "buscar", "hunt", "busca"):
+        await update.message.reply_text(
+            "BEE key_hunter activada — buscando nuevos proveedores gratuitos...\n"
+            "Resultado en ~60 segundos.",
+            reply_markup=MENU_KEYBOARD,
+        )
+        import threading
+        def _hunt():
+            report = key_hunter.run_hunt()
+            # Notificación ya la hace key_hunter internamente via notify_fn
+        threading.Thread(target=_hunt, daemon=True).start()
+
+    elif args.startswith("integrar ") or args.startswith("add "):
+        provider = args.split(" ", 1)[1].strip()
+        instructions = get_integration_instructions(provider)
+        await update.message.reply_text(instructions[:4000], reply_markup=MENU_KEYBOARD)
+
+    else:
+        await update.message.reply_text(
+            "Uso:\n"
+            "/keys           — ver todos los proveedores\n"
+            "/keys cazar     — BEE busca nuevas APIs gratis ahora\n"
+            "/keys integrar <nombre>  — instrucciones de registro\n\n"
+            "Ejemplos:\n"
+            "/keys integrar openrouter\n"
+            "/keys integrar sambanova\n"
+            "/keys integrar huggingface",
+            reply_markup=MENU_KEYBOARD,
+        )
+
+
+async def _cmd_beemode(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /beemode              — ver modo actual de entrenamiento
+    /beemode economico    — 5 BEEs, sostenible 24/7 (default)
+    /beemode normal       — 15 BEEs, ~10h antes de agotar cuotas
+    /beemode burst        — 50 BEEs durante 30 min, luego vuelve a económico
+    /beemode burst 60     — burst de 60 minutos
+    """
+    from swarm.autonomous_loop import autonomous_loop
+
+    args = context.args or []
+
+    if not args:
+        from swarm.autonomous_loop import TRAINING_MODES
+        mode = autonomous_loop._training_mode
+        limit = autonomous_loop._active_training_limit()
+        import time as _t
+        burst_info = ""
+        if mode == "burst" and autonomous_loop._burst_until > _t.time():
+            mins_left = int((autonomous_loop._burst_until - _t.time()) / 60)
+            burst_info = f"\nBurst expira en: {mins_left} min"
+
+        await update.message.reply_text(
+            f"Modo actual: {mode.upper()} ({limit} BEEs activas){burst_info}\n\n"
+            f"Modos disponibles:\n"
+            f"  economico — 5 BEEs, 24/7 sin agotar cuotas\n"
+            f"  normal    — 15 BEEs, ~10h/día\n"
+            f"  burst     — 50 BEEs por 30 min (solo manual)\n\n"
+            f"Cómo funciona:\n"
+            f"  En modo económico, las 5 BEEs entrenan usando Cerebras\n"
+            f"  como proveedor principal. Groq/Gemini/Together quedan\n"
+            f"  100% libres para tus requests directos.\n"
+            f"  El rate limiter hace cola automática — ninguna BEE\n"
+            f"  supera el límite del proveedor.",
+            reply_markup=MENU_KEYBOARD,
+        )
+        return
+
+    mode = args[0].lower()
+    duration = int(args[1]) if len(args) > 1 and args[1].isdigit() else 30
+
+    result = autonomous_loop.set_training_mode(mode, duration_minutes=duration)
+    await update.message.reply_text(result, reply_markup=MENU_KEYBOARD)
+
+
+async def _cmd_cuotas(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /cuotas — estado actual de cuotas de todos los proveedores.
+    Muestra RPM usado, cuota diaria, y cuándo se reinicia.
+    """
+    try:
+        from tools.llm_adapter import quota_status
+        stats = quota_status()
+        lines = ["📊 CUOTAS DE PROVEEDORES — ESTADO ACTUAL\n"]
+        lines.append("=" * 40 + "\n")
+
+        for s in stats:
+            if s["daily_limit"]:
+                pct = int(100 * s["daily_used"] / s["daily_limit"])
+                bar = "█" * (pct // 10) + "░" * (10 - pct // 10)
+                daily_txt = f"{s['daily_used']}/{s['daily_limit']} [{bar}] {pct}% — reinicia {s['resets_at']}"
+            else:
+                daily_txt = "sin límite diario (pago)"
+
+            rpm_txt = f"{s['rpm_used']}/{s['rpm_limit']} rpm"
+            lines.append(
+                f"• {s['provider'].upper()}\n"
+                f"  RPM: {rpm_txt}\n"
+                f"  Día: {daily_txt}\n"
+            )
+
+        lines.append(
+            "\nPRIORIDAD DE LLAMADAS:\n"
+            "  Loop BEEs → Cerebras (50 rpm, sin límite diario)\n"
+            "  Tus requests → cascada completa según tarea\n"
+            "  El rate limiter hace cola — jamás spam a las APIs"
+        )
+        await update.message.reply_text("".join(lines)[:4000], reply_markup=MENU_KEYBOARD)
+    except Exception as e:
+        await update.message.reply_text(f"Error leyendo cuotas: {e}", reply_markup=MENU_KEYBOARD)
 
 async def _cmd_healer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from tools.self_healer import self_healer as _sh
@@ -2391,6 +2530,10 @@ def _build_app(token: str, webhook: bool = False):
     app.add_handler(CommandHandler("bee",        _cmd_bee))
     app.add_handler(CommandHandler("tasks",      _cmd_tasks))
     app.add_handler(CommandHandler("memory",     _cmd_memory))
+    app.add_handler(CommandHandler("keys",       _cmd_keys))
+    app.add_handler(CommandHandler("apis",       _cmd_keys))
+    app.add_handler(CommandHandler("beemode",    _cmd_beemode))
+    app.add_handler(CommandHandler("cuotas",     _cmd_cuotas))
 
     # Inline callbacks
     app.add_handler(CallbackQueryHandler(handle_callback))
