@@ -23,8 +23,8 @@ beehAIve cambia eso:
 
 | Problema actual | beehAIve lo resuelve con |
 |----------------|--------------------------|
-| 1 agente a la vez | 1000 BEEs en paralelo |
-| Se cansa con contextos largos | Cerebras 750 rpm sin límite diario |
+| 1 agente a la vez | 1200 BEEs en paralelo |
+| Se cansa con contextos largos | Cerebras 950 rpm sin límite diario |
 | Modelos caros ($20/mes Claude Pro) | Claude Opus 4 gratis via Puter |
 | No funciona 24/7 | UptimeRobot keep-alive, $0 |
 | No tiene memoria | Base de conocimiento persistente |
@@ -37,9 +37,9 @@ beehAIve cambia eso:
 
 ## La tecnología
 
-### El Enjambre — 1000 BEEs activas
+### El Enjambre — 1200 BEEs activas
 
-beehAIve corre hasta **1000 agentes especializados en paralelo** (BEEs), cada uno con un rol específico:
+beehAIve corre hasta **1200 agentes especializados en paralelo** (BEEs), cada uno con un rol específico:
 
 - `researcher` — investiga fuentes, extrae datos, sintetiza
 - `coder` — escribe y audita código
@@ -54,13 +54,13 @@ beehAIve corre hasta **1000 agentes especializados en paralelo** (BEEs), cada un
 | Proveedor | Claves/Tokens | RPM | Coste |
 |-----------|--------------|-----|-------|
 | **Puter** (Claude Opus 4 + Sonnet 4 + GPT-4o) | 5 tokens | Sin límite | **Gratis** |
-| **Cerebras** (Llama ultra-rápido) | 15 claves | 750 rpm | **Gratis** |
+| **Cerebras** (Llama ultra-rápido) | 19 claves | 950 rpm | **Gratis** |
 | Together AI | 4 válidas | 60 rpm | Gratis |
 | Gemini Flash | 4 | 40 rpm | Gratis |
 | Groq | 1 | 25 rpm | Gratis |
 | OpenAI (backup) | 1 | 50 rpm | Pago |
 
-**Total: 1000+ rpm disponibles. Coste mensual: $0.**
+**Total: 1200+ rpm disponibles. Coste mensual: $0.**
 
 ### El cerebro — Claude Opus 4 gratis
 
@@ -88,7 +88,7 @@ Ningún competidor tiene acceso gratuito a Claude Opus 4. beehAIve sí.
 ### 2. Imágenes — FLUX.2-dev 32B
 
 El modelo de imagen más avanzado disponible, directamente desde Telegram.
-Cascada automática: BFL API → Stable Horde → FAL → Together → DALL-E.
+Cascada automática: FAL/FLUX.2 → BFL/FLUX.2 → Together → Stable Horde → DALL-E.
 Sin Replicate. Sin censura en Stable Horde.
 
 ### 3. Video — LTX-2 con audio
@@ -99,9 +99,10 @@ Duración: 3, 5, 8 o 10 segundos.
 ### 4. Visión sin censura
 
 Analiza cualquier imagen que envíes:
-1. Qwen2-VL-72B via Together (sin censura)
-2. Groq llama-3.2-90b-vision (baja censura)
-3. GPT-4o solo como último recurso
+1. OpenRouter Qwen3-VL-30B/235B (sin censura, gratis)
+2. Together Qwen2-VL-72B (sin censura)
+3. HuggingFace Qwen2-VL-7B (fallback)
+4. GPT-4o solo como último recurso
 
 ### 5. Crypto nativo completo
 
@@ -135,7 +136,7 @@ Cuando algo se rompe:
 | Característica | beehAIve | ChatGPT Plus | Claude Pro | AutoGPT | CrewAI |
 |----------------|----------|-------------|-----------|---------|--------|
 | Precio/mes | **$0** | $20 | $20 | $0+infra | $0+infra |
-| Agentes paralelo | **1000** | 1 | 1 | 3-5 | 10-20 |
+| Agentes paralelo | **1200** | 1 | 1 | 3-5 | 10-20 |
 | Claude Opus 4 | **✅ gratis** | ❌ | $20/mes | ❌ | ❌ |
 | 24/7 autónomo | **✅** | ❌ | ❌ | manual | manual |
 | Auto-reparación | **✅** | ❌ | ❌ | ❌ | ❌ |
@@ -181,8 +182,8 @@ Cuando algo se rompe:
 ### Funcionando hoy (10 Mar 2026)
 - ✅ Telegram + Discord simultáneo
 - ✅ Claude Opus 4 + Sonnet 4 gratis (5 tokens Puter)
-- ✅ 750 BEEs garantizadas (15 claves Cerebras)
-- ✅ 1000+ BEEs probables (Cerebras + Puter overflow)
+- ✅ 950 BEEs garantizadas (19 claves Cerebras)
+- ✅ 1200+ BEEs probables (Cerebras + Puter overflow)
 - ✅ Imágenes FLUX.2-dev (BFL + FAL)
 - ✅ Video LTX-2 (FAL)
 - ✅ Visión sin censura (Qwen2-VL-72B)
