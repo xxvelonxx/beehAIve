@@ -4,7 +4,37 @@
 
 Inspirado en [Hauzd](https://hauzd.com/es), pero auto-generado desde planos con AI en minutos en vez de semanas con artistas 3D.
 
-## Cómo se usa
+## Tres modos de uso
+
+### 🤖 Modo autónomo (recomendado) — push y olvídate
+
+1. Setup una vez: agregar `OPENROUTER_KEY` (y opcional `FAL_KEY`) como secrets del repo.
+2. Drop un PNG en `inputs/planos/`.
+3. Push.
+4. GitHub Actions corre [`bin/cayena-cli.js`](bin/cayena-cli.js) y commitea el showroom completo a `outputs/<nombre>/` en ~3-5 min.
+
+Detalles: [`inputs/README.md`](inputs/README.md)
+
+### 💻 CLI local
+
+```bash
+npm install
+OPENROUTER_KEY=sk-or-... FAL_KEY=fal-... \
+  node bin/cayena-cli.js --plan inputs/planos/cap-cana.png --realismo
+```
+
+Output en `outputs/cap-cana/`: `rooms.json`, `captures/*.jpg`, `realismo/*.jpg`, `showroom.zip`.
+
+### 🖥 UI interactiva (para tuning fino)
+
+```bash
+npm start
+# abre http://localhost:3000
+```
+
+
+
+## UI interactiva — flow paso a paso (modo creator)
 
 1. **Login** (avatar + 6 dígitos)
 2. **Nuevo proyecto** → es el desarrollo (un edificio, una comunidad)

@@ -1,0 +1,142 @@
+name: Auto-generate showroom from plano
+
+# Triggers when a floor plan PNG/JPG is added/updated under inputs/planos/.
+# Generates a complete showroom (rooms.json, captures, realismo, ZIP) under
+# outputs/<plan-name>/ and commits it back to the same branch.
+#
+# Required repo secrets:
+#   OPENROUTER_KEY   for plan analysis (Gemini Vision)
+# Optional repo secrets:
+#   FAL_KEY          enables Realismo Pro photoreal renders ($0.04/img)
+#
+# Setup once: Settings → Secrets and variables → Actions → New repository secret.
+# Then drop a plan into inputs/planos/, push, and the showroom appears in
+# outputs/ within ~3-5 minutes.
+
+on:
+  push:
+    paths:
+      - 'inputs/planos/**'
+  workflow_dispatch:
+    inputs:
+      plan_path:
+        description: 'Specific plan to (re)process (e.g. inputs/planos/cap-cana.png)'
+        required: false
+      realismo:
+        description: 'Run Realismo Pro (fal.ai) — costs ~$0.12 per plan'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: showroom-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Chromium (for Puppeteer)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libnss3 libatk-bridge2.0-0 libdrm2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+            libgbm1 libpango-1.0-0 libcairo2 libasound2t64 libnspr4 \
+            fonts-liberation xdg-utils
+
+      - name: Install npm deps
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm i --no-save; fi
+          npm i --no-save puppeteer serve
+
+      - name: Find plans to process
+        id: plans
+        run: |
+          if [ -n "${{ github.event.inputs.plan_path }}" ]; then
+            echo "files=${{ github.event.inputs.plan_path }}" >> $GITHUB_OUTPUT
+          else
+            # On push: process every plan under inputs/planos that doesn't yet have an output
+            FILES=""
+            shopt -s nullglob
+            for f in inputs/planos/*.{png,jpg,jpeg,PNG,JPG,JPEG}; do
+              [ -e "$f" ] || continue
+              base=$(basename "$f")
+              name="${base%.*}"
+              # Sanitize name to match CLI
+              safe=$(echo "$name" | sed 's/[^a-zA-Z0-9_-]/_/g')
+              if [ ! -d "outputs/$safe" ]; then
+                FILES="$FILES $f"
+              fi
+            done
+            echo "files=${FILES# }" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Show plans queued
+        run: |
+          echo "Plans to process: '${{ steps.plans.outputs.files }}'"
+          if [ -z "${{ steps.plans.outputs.files }}" ]; then
+            echo "Nothing to do — no new planos detected."
+          fi
+
+      - name: Generate showrooms
+        if: steps.plans.outputs.files != ''
+        env:
+          OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+        run: |
+          REALISMO_FLAG=""
+          if [ "${{ github.event.inputs.realismo || 'true' }}" = "true" ] && [ -n "$FAL_KEY" ]; then
+            REALISMO_FLAG="--realismo"
+          fi
+          for f in ${{ steps.plans.outputs.files }}; do
+            base=$(basename "$f")
+            name="${base%.*}"
+            echo "::group::Processing $f"
+            node bin/cayena-cli.js \
+              --plan "$f" \
+              --name "$name" \
+              --out "outputs/$(echo "$name" | sed 's/[^a-zA-Z0-9_-]/_/g')" \
+              --captures 6 \
+              $REALISMO_FLAG || echo "::warning::$f failed"
+            echo "::endgroup::"
+          done
+
+      - name: Commit outputs
+        if: steps.plans.outputs.files != ''
+        run: |
+          git config user.name 'cayena-bot'
+          git config user.email 'bot@cayenabot.local'
+          git add outputs/
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: auto-generated showrooms
+
+            Plans: ${{ steps.plans.outputs.files }}
+
+            [skip ci]"
+            git push
+          else
+            echo "No output changes to commit."
+          fi
+
+      - name: Upload outputs as workflow artifact
+        if: steps.plans.outputs.files != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: showrooms
+          path: outputs/
+          retention-days: 30
