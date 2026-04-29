@@ -77,6 +77,7 @@ async function buildBundle(state, toast) {
     'vendor/three/build/three.module.js',
     'vendor/three/examples/jsm/controls/OrbitControls.js',
     'vendor/three/examples/jsm/controls/PointerLockControls.js',
+    'vendor/three/examples/jsm/geometries/RoundedBoxGeometry.js',
   ];
   for (const f of threeFiles) {
     const txt = await fetchText('./' + f);

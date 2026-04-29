@@ -58,7 +58,7 @@ function buildWallShape(width, height, openings, mats) {
   wall.userData.disposable = true;
   group.add(wall);
 
-  // glass panes
+  // glass panes + frames + muntins
   glassFills.forEach(op => {
     const gw = op.x2 - op.x1, gh = op.y2 - op.y1;
     const glassGeom = new THREE.PlaneGeometry(gw, gh);
@@ -66,7 +66,8 @@ function buildWallShape(width, height, openings, mats) {
     glass.position.set((op.x1 + op.x2) / 2, (op.y1 + op.y2) / 2, 0);
     glass.userData.disposable = true;
     group.add(glass);
-    // chrome frame
+
+    // chrome perimeter frame
     const frameThickness = 0.04;
     const frameDepth = 0.06;
     const frame = new THREE.Group();
@@ -80,6 +81,24 @@ function buildWallShape(width, height, openings, mats) {
     const right = new THREE.Mesh(new THREE.BoxGeometry(frameThickness, gh, frameDepth), fmat);
     right.position.set(op.x2, (op.y1 + op.y2) / 2, 0);
     [top, bot, left, right].forEach(m => { m.userData.disposable = true; frame.add(m); });
+
+    // muntins (interior dividers): horizontal at 1/3 and 2/3 height for tall windows,
+    // single vertical center for wide windows
+    const muntinT = 0.025;
+    if (gh > 1.4) {
+      // horizontal muntin at 40% height
+      const hb = new THREE.Mesh(new THREE.BoxGeometry(gw, muntinT, frameDepth * 0.7), fmat);
+      hb.position.set((op.x1 + op.x2) / 2, op.y1 + gh * 0.4, 0);
+      hb.userData.disposable = true;
+      frame.add(hb);
+    }
+    if (gw > 1.6) {
+      const vb = new THREE.Mesh(new THREE.BoxGeometry(muntinT, gh, frameDepth * 0.7), fmat);
+      vb.position.set((op.x1 + op.x2) / 2, (op.y1 + op.y2) / 2, 0);
+      vb.userData.disposable = true;
+      frame.add(vb);
+    }
+
     group.add(frame);
   });
 
@@ -161,12 +180,39 @@ export function buildRoom(scene, room, index, mats, aptW, aptD, height, thicknes
   floor.userData.disposable = true;
   scene.add(floor);
 
-  // ceiling
+  // baseboards (zócalo) — 8cm dark band along all 4 walls at floor level
+  // Huge "real space" effect for almost free in geometry cost.
+  const baseH = 0.08, baseT = 0.02;
+  const baseMat = mats.wood; // dark wood baseboard
+  const bbN = new THREE.Mesh(new THREE.BoxGeometry(w.w, baseH, baseT), baseMat);
+  bbN.position.set(w.cx, baseH / 2 + 0.005, w.z + baseT / 2);
+  const bbS = new THREE.Mesh(new THREE.BoxGeometry(w.w, baseH, baseT), baseMat);
+  bbS.position.set(w.cx, baseH / 2 + 0.005, w.z + w.d - baseT / 2);
+  const bbE = new THREE.Mesh(new THREE.BoxGeometry(baseT, baseH, w.d), baseMat);
+  bbE.position.set(w.x + w.w - baseT / 2, baseH / 2 + 0.005, w.cz);
+  const bbW = new THREE.Mesh(new THREE.BoxGeometry(baseT, baseH, w.d), baseMat);
+  bbW.position.set(w.x + baseT / 2, baseH / 2 + 0.005, w.cz);
+  [bbN, bbS, bbE, bbW].forEach(m => { m.userData = { disposable: true, kind: 'baseboard' }; scene.add(m); });
+
+  // ceiling — tagged so dollhouse mode can hide it (cutaway view)
   const ceilingGeom = new THREE.BoxGeometry(w.w, 0.06, w.d);
   const ceiling = new THREE.Mesh(ceilingGeom, mats.ceiling);
   ceiling.position.set(w.cx, height + 0.03, w.cz);
-  ceiling.userData.disposable = true;
+  ceiling.userData = { disposable: true, kind: 'ceiling' };
   scene.add(ceiling);
+
+  // ceiling crown molding — thin band where wall meets ceiling
+  const cmH = 0.05, cmT = 0.02;
+  const cmMat = mats.ceiling; // white crown for now
+  const cmN = new THREE.Mesh(new THREE.BoxGeometry(w.w, cmH, cmT), cmMat);
+  cmN.position.set(w.cx, height - cmH / 2, w.z + cmT / 2);
+  const cmS = new THREE.Mesh(new THREE.BoxGeometry(w.w, cmH, cmT), cmMat);
+  cmS.position.set(w.cx, height - cmH / 2, w.z + w.d - cmT / 2);
+  const cmE = new THREE.Mesh(new THREE.BoxGeometry(cmT, cmH, w.d), cmMat);
+  cmE.position.set(w.x + w.w - cmT / 2, height - cmH / 2, w.cz);
+  const cmW = new THREE.Mesh(new THREE.BoxGeometry(cmT, cmH, w.d), cmMat);
+  cmW.position.set(w.x + cmT / 2, height - cmH / 2, w.cz);
+  [cmN, cmS, cmE, cmW].forEach(m => { m.userData = { disposable: true, kind: 'crown' }; scene.add(m); });
 
   // 4 walls
   // North (+Z side, looking south)

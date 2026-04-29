@@ -4,6 +4,12 @@
  */
 
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/** Helper for soft-edged furniture pieces. r controls bevel radius. */
+function rb(w, h, d, r = 0.04, seg = 4) {
+  return new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2.1, h / 2.1, d / 2.1));
+}
 
 function classify(room) {
   const n = (room.name || '').toLowerCase();
@@ -29,18 +35,18 @@ function tagDisposable(obj) {
 
 /* ---------------- LIVING ---------------- */
 function buildLiving(group, mats) {
-  // L-shaped sofa
+  // L-shaped sofa with bevel-edged cushions
   const sofa = new THREE.Group();
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.45, 0.95), mats.leather);
+  const seat = new THREE.Mesh(rb(2.6, 0.45, 0.95, 0.06), mats.leather);
   seat.position.set(0, 0.45, 0);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.65, 0.18), mats.leather);
+  const back = new THREE.Mesh(rb(2.6, 0.65, 0.18, 0.05), mats.leather);
   back.position.set(0, 0.95, -0.4);
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.95), mats.leather);
+  const armL = new THREE.Mesh(rb(0.18, 0.55, 0.95, 0.05), mats.leather);
   armL.position.set(-1.3, 0.6, 0);
   const armR = armL.clone(); armR.position.x = 1.3;
-  const ext = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.45, 1.4), mats.leather);
+  const ext = new THREE.Mesh(rb(0.95, 0.45, 1.4, 0.06), mats.leather);
   ext.position.set(1.3 + 0.475, 0.45, 0.7);
-  const cushion1 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.18, 0.55), mats.fabric);
+  const cushion1 = new THREE.Mesh(rb(0.55, 0.18, 0.55, 0.05), mats.fabric);
   cushion1.position.set(-0.8, 0.78, 0.1);
   const cushion2 = cushion1.clone(); cushion2.position.set(0.6, 0.78, 0.1);
   sofa.add(seat, back, armL, armR, ext, cushion1, cushion2);
@@ -48,7 +54,7 @@ function buildLiving(group, mats) {
 
   // marble coffee table with chrome legs
   const table = new THREE.Group();
-  const top = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.05, 0.7), mats.marble);
+  const top = new THREE.Mesh(rb(1.4, 0.05, 0.7, 0.02), mats.marble);
   top.position.y = 0.45;
   const leg = (x, z) => {
     const l = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.45, 16), mats.chrome);
@@ -86,7 +92,7 @@ function buildLiving(group, mats) {
 
 /* ---------------- DINING ---------------- */
 function buildDining(group, mats) {
-  const top = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.05, 0.95), mats.wood);
+  const top = new THREE.Mesh(rb(2.0, 0.05, 0.95, 0.02), mats.wood);
   top.position.y = 0.74;
   group.add(top);
   const legGeom = new THREE.BoxGeometry(0.06, 0.74, 0.06);
@@ -122,9 +128,9 @@ function buildDining(group, mats) {
 
 function buildChair(mats) {
   const ch = new THREE.Group();
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.05, 0.45), mats.fabric);
+  const seat = new THREE.Mesh(rb(0.45, 0.06, 0.45, 0.04), mats.fabric);
   seat.position.y = 0.45;
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.55, 0.05), mats.fabric);
+  const back = new THREE.Mesh(rb(0.45, 0.55, 0.05, 0.04), mats.fabric);
   back.position.set(0, 0.72, -0.22);
   const lg = new THREE.BoxGeometry(0.04, 0.45, 0.04);
   [-0.2, 0.2].forEach(x => [-0.2, 0.2].forEach(z => {
@@ -138,9 +144,9 @@ function buildChair(mats) {
 function buildKitchen(group, mats) {
   // Island with marble top
   const island = new THREE.Group();
-  const ibody = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.9, 1.0), mats.wood);
+  const ibody = new THREE.Mesh(rb(2.4, 0.9, 1.0, 0.03), mats.wood);
   ibody.position.y = 0.45;
-  const itop = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.06, 1.1), mats.marble);
+  const itop = new THREE.Mesh(rb(2.5, 0.06, 1.1, 0.02), mats.marble);
   itop.position.y = 0.93;
   island.add(ibody, itop);
   group.add(island);
@@ -156,17 +162,17 @@ function buildKitchen(group, mats) {
     group.add(s);
   }
   // wall cabinets (on -z)
-  const cab = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.8, 0.35), mats.wood);
+  const cab = new THREE.Mesh(rb(3.0, 0.8, 0.35, 0.02), mats.wood);
   cab.position.set(0, 1.85, -1.6);
   group.add(cab);
-  const counter = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.06, 0.6), mats.marble);
+  const counter = new THREE.Mesh(rb(3.0, 0.06, 0.6, 0.02), mats.marble);
   counter.position.set(0, 0.93, -1.4);
   group.add(counter);
-  const counterBase = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.9, 0.55), mats.wood);
+  const counterBase = new THREE.Mesh(rb(3.0, 0.9, 0.55, 0.02), mats.wood);
   counterBase.position.set(0, 0.45, -1.4);
   group.add(counterBase);
   // chrome appliance (oven block)
-  const oven = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.55), mats.chrome);
+  const oven = new THREE.Mesh(rb(0.7, 0.8, 0.55, 0.02), mats.chrome);
   oven.position.set(1.0, 0.4, -1.4);
   group.add(oven);
 }
@@ -174,22 +180,22 @@ function buildKitchen(group, mats) {
 /* ---------------- BEDROOM ---------------- */
 function buildBedroom(group, mats) {
   // bed frame + mattress + headboard + 2 nightstands
-  const frame = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.3, 2.1), mats.wood);
+  const frame = new THREE.Mesh(rb(1.85, 0.3, 2.1, 0.04), mats.wood);
   frame.position.y = 0.15;
-  const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.25, 2.0), mats.fabric);
+  const mattress = new THREE.Mesh(rb(1.75, 0.25, 2.0, 0.06), mats.fabric);
   mattress.position.y = 0.42;
-  const head = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.1, 0.12), mats.fabric);
+  const head = new THREE.Mesh(rb(2.0, 1.1, 0.12, 0.05), mats.fabric);
   head.position.set(0, 0.85, -1.0);
-  const pillow1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.12, 0.4), mats.ceiling);
+  const pillow1 = new THREE.Mesh(rb(0.8, 0.12, 0.4, 0.06), mats.ceiling);
   pillow1.position.set(-0.45, 0.62, -0.85);
   const pillow2 = pillow1.clone(); pillow2.position.x = 0.45;
   group.add(frame, mattress, head, pillow1, pillow2);
 
   const ns = (x) => {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.42), mats.wood);
+    const body = new THREE.Mesh(rb(0.5, 0.5, 0.42, 0.03), mats.wood);
     body.position.y = 0.25;
-    const top = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.04, 0.45), mats.marble);
+    const top = new THREE.Mesh(rb(0.55, 0.04, 0.45, 0.02), mats.marble);
     top.position.y = 0.52;
     const lampbase = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.04, 16), mats.gold);
     lampbase.position.y = 0.56;
@@ -203,10 +209,10 @@ function buildBedroom(group, mats) {
   group.add(ns(-1.3), ns(1.3));
 
   // Dresser
-  const dr = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.85, 0.5), mats.wood);
+  const dr = new THREE.Mesh(rb(1.6, 0.85, 0.5, 0.03), mats.wood);
   dr.position.set(0, 0.42, 1.4);
   group.add(dr);
-  const drMirror = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 0.02), mats.glass);
+  const drMirror = new THREE.Mesh(rb(1.0, 0.8, 0.02, 0.01), mats.chrome);
   drMirror.position.set(0, 1.4, 1.65);
   group.add(drMirror);
 }
@@ -219,10 +225,10 @@ function buildBathroom(group, mats) {
   tub.position.set(-0.8, 0.25, 0);
   group.add(tub);
   // vanity
-  const vanity = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.85, 0.5), mats.wood);
+  const vanity = new THREE.Mesh(rb(1.4, 0.85, 0.5, 0.03), mats.wood);
   vanity.position.set(1.0, 0.42, -1.0);
   group.add(vanity);
-  const vTop = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.05, 0.55), mats.marble);
+  const vTop = new THREE.Mesh(rb(1.45, 0.05, 0.55, 0.02), mats.marble);
   vTop.position.set(1.0, 0.86, -1.0);
   group.add(vTop);
   const sink = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), mats.ceiling);
@@ -245,12 +251,12 @@ function buildTerrace(group, mats) {
   // 2 lounge chairs
   const chair = (x) => {
     const c = new THREE.Group();
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.18, 1.8), mats.wood);
+    const base = new THREE.Mesh(rb(0.6, 0.18, 1.8, 0.04), mats.wood);
     base.position.y = 0.18;
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.06, 0.7), mats.wood);
+    const back = new THREE.Mesh(rb(0.6, 0.06, 0.7, 0.03), mats.wood);
     back.position.set(0, 0.4, -0.5);
     back.rotation.x = -0.5;
-    const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.1, 1.6), mats.fabric);
+    const cushion = new THREE.Mesh(rb(0.55, 0.1, 1.6, 0.05), mats.fabric);
     cushion.position.y = 0.32;
     c.add(base, back, cushion);
     c.position.set(x, 0, 0);
@@ -273,7 +279,7 @@ function buildTerrace(group, mats) {
 
 /* ---------------- OFFICE ---------------- */
 function buildOffice(group, mats) {
-  const desk = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.05, 0.7), mats.wood);
+  const desk = new THREE.Mesh(rb(1.6, 0.05, 0.7, 0.02), mats.wood);
   desk.position.y = 0.74;
   group.add(desk);
   [[-0.7, 0.32], [0.7, 0.32], [-0.7, -0.32], [0.7, -0.32]].forEach(([x, z]) => {
@@ -285,20 +291,20 @@ function buildOffice(group, mats) {
   chair.position.set(0, 0, 0.8);
   group.add(chair);
   // bookshelf
-  const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.2, 0.3), mats.wood);
+  const shelf = new THREE.Mesh(rb(2.0, 2.2, 0.3, 0.02), mats.wood);
   shelf.position.set(0, 1.1, -1.4);
   group.add(shelf);
 }
 
 /* ---------------- CLOSET ---------------- */
 function buildCloset(group, mats) {
-  const wardrobe = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.4, 0.6), mats.wood);
+  const wardrobe = new THREE.Mesh(rb(2.4, 2.4, 0.6, 0.03), mats.wood);
   wardrobe.position.set(0, 1.2, -0.8);
   group.add(wardrobe);
-  const island = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 0.6), mats.wood);
+  const island = new THREE.Mesh(rb(1.4, 0.9, 0.6, 0.03), mats.wood);
   island.position.set(0, 0.45, 0.5);
   group.add(island);
-  const top = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.04, 0.65), mats.marble);
+  const top = new THREE.Mesh(rb(1.45, 0.04, 0.65, 0.02), mats.marble);
   top.position.set(0, 0.93, 0.5);
   group.add(top);
 }

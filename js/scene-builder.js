@@ -24,10 +24,15 @@ const APT_W = 18; // meters
 const APT_D = 14; // meters
 
 /* ================================================================ HDRI */
-function buildSkyEnvironment(renderer, mode = 'walk') {
-  const stops = mode === 'walk'
-    ? ['#4a90d9', '#87CEEB', '#b8dbe8', '#f5e6d0', '#d4a574']
-    : ['#0a0e1a', '#1a1a2e', '#2a2a3e', '#3a3a4e', '#1a1a2e'];
+function buildSkyEnvironment(renderer, mode = 'day') {
+  let stops;
+  if (mode === 'night') {
+    // Dramatic night: deep navy + moonlit horizon glow
+    stops = ['#020410', '#050c1f', '#0a1428', '#1a2540', '#2a3550'];
+  } else {
+    // Bright day: tropical golden-hour sky
+    stops = ['#4a90d9', '#87CEEB', '#b8dbe8', '#f5e6d0', '#d4a574'];
+  }
 
   const cv = document.createElement('canvas');
   cv.width = 512; cv.height = 512;
@@ -36,6 +41,20 @@ function buildSkyEnvironment(renderer, mode = 'walk') {
   stops.forEach((c, i) => grd.addColorStop(i / (stops.length - 1), c));
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, 512, 512);
+
+  // Add subtle stars to night sky for drama
+  if (mode === 'night') {
+    for (let i = 0; i < 80; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 256; // upper half only
+      const r = Math.random() * 1.2 + 0.3;
+      const a = Math.random() * 0.7 + 0.3;
+      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 
   const tex = new THREE.CanvasTexture(cv);
   tex.mapping = THREE.EquirectangularReflectionMapping;
@@ -117,16 +136,18 @@ export function mountSceneBuilder({ state, toast }) {
     container.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
-    envMap = buildSkyEnvironment(renderer, 'walk'); // start bright
+    envMap = buildSkyEnvironment(renderer, 'day'); // start bright
     scene.environment = envMap;
     scene.background = new THREE.Color(0x87CEEB); // sky blue background
     scene.fog = new THREE.Fog(0xb8dbe8, 60, 200);
 
     lights = addLights(scene);
 
-    camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
-    camera.position.set(15, 18, 15);
-    camera.lookAt(0, 1, 0);
+    // FOV 38 ≈ Hauzd's framing — narrower than typical Three.js demos so
+    // architectural geometry doesn't look fish-eyed.
+    camera = new THREE.PerspectiveCamera(38, w / h, 0.1, 500);
+    camera.position.set(13, 11, 14); // lower angle, closer — emphasizes cutaway
+    camera.lookAt(0, 1.2, 0);
 
     orbit = new OrbitControls(camera, renderer.domElement);
     orbit.enableDamping = true;
@@ -210,13 +231,23 @@ export function mountSceneBuilder({ state, toast }) {
     } else {
       try { walk.unlock(); } catch {}
       orbit.enabled = true;
-      camera.position.set(15, 18, 15);
-      orbit.target.set(0, 1, 0);
+      camera.position.set(13, 11, 14);
+      orbit.target.set(0, 1.2, 0);
       orbit.update();
     }
-    // Keep bright env in both modes for visibility; only adjust background
+    // Cutaway: hide ceilings in dollhouse so all rooms are visible from above
+    applyCutaway();
+    // Background tint for the mode
     if (next === 'walk' && envMap) scene.background = envMap;
-    else scene.background = new THREE.Color(0x87CEEB);
+    else scene.background = new THREE.Color(isNight ? 0x050c1f : 0x87CEEB);
+  }
+
+  /** Hide ceilings + roof when in dollhouse mode (Hauzd-style cutaway). */
+  function applyCutaway() {
+    const showCeilings = mode === 'walk';
+    scene.traverse(o => {
+      if (o.userData?.kind === 'ceiling') o.visible = showCeilings;
+    });
   }
 
   /* =============== build =============== */
@@ -248,6 +279,11 @@ export function mountSceneBuilder({ state, toast }) {
     // Exterior context: ground / pool / palms (only meaningful in dollhouse)
     const { buildExterior } = await import('./scene-exterior.js');
     buildExterior(scene, mats, APT_W, APT_D);
+
+    // Apply current cutaway state to the freshly-built ceilings
+    applyCutaway();
+    // Reapply night state if we're in night already (env map binds to materials at build)
+    if (isNight) setDayNight(true);
   }
 
   /* =============== teleport / fly camera =============== */
@@ -278,25 +314,42 @@ export function mountSceneBuilder({ state, toast }) {
   function setDayNight(night) {
     if (!lights) return;
     isNight = !!night;
+    // Swap env map for dramatic reflections (dark sky vs sunny sky)
+    if (renderer) {
+      const newEnv = buildSkyEnvironment(renderer, isNight ? 'night' : 'day');
+      // Drop intensity at night so dark env doesn't kill visibility
+      scene.environment = newEnv;
+      scene.environmentIntensity = isNight ? 0.35 : 1.0;
+      if (envMap) envMap.dispose();
+      envMap = newEnv;
+    }
+
     if (isNight) {
-      lights.ambient.intensity = 0.18;
-      lights.sun.color.setHex(0x4a6688);
-      lights.sun.intensity = 0.4;
-      lights.sun.position.set(8, 6, -10);
-      lights.fill.color.setHex(0x6080b0);
-      lights.fill.intensity = 0.3;
-      lights.hemi.color.setHex(0x223349);
-      lights.hemi.groundColor.setHex(0x141420);
-      lights.hemi.intensity = 0.3;
+      lights.ambient.color.setHex(0x3a4a6a);
+      lights.ambient.intensity = 0.25;
+      lights.sun.color.setHex(0xb8c8e8);     // moon
+      lights.sun.intensity = 0.6;
+      lights.sun.position.set(-12, 14, -8);
+      lights.fill.color.setHex(0x4060a0);
+      lights.fill.intensity = 0.25;
+      lights.hemi.color.setHex(0x1a2540);
+      lights.hemi.groundColor.setHex(0x0a0612);
+      lights.hemi.intensity = 0.45;
       lights.rim.color.setHex(0xffd089);
-      lights.rim.intensity = 0.5;
-      scene.background = new THREE.Color(0x0d1a2c);
-      if (renderer) renderer.toneMappingExposure = 0.95;
-      // Boost per-room point lights for night warmth
+      lights.rim.intensity = 0.4;
+      scene.background = new THREE.Color(0x050c1f);
+      if (scene.fog) { scene.fog.color.setHex(0x0a1428); scene.fog.near = 30; scene.fog.far = 120; }
+      if (renderer) renderer.toneMappingExposure = 1.0;
+      // Boost per-room point lights — they become the primary illumination
       scene.traverse(o => {
-        if (o.isPointLight && o.userData.disposable) o.intensity = 2.2;
+        if (o.isPointLight && o.userData.disposable) {
+          o.intensity = 4.0;
+          o.distance = 14;
+          o.color.setHex(0xffc080);
+        }
       });
     } else {
+      lights.ambient.color.setHex(0xfff8f0);
       lights.ambient.intensity = 0.4;
       lights.sun.color.setHex(0xffecd0);
       lights.sun.intensity = 2.5;
@@ -308,10 +361,15 @@ export function mountSceneBuilder({ state, toast }) {
       lights.hemi.intensity = 0.5;
       lights.rim.color.setHex(0xffd0a0);
       lights.rim.intensity = 0.8;
-      scene.background = new THREE.Color(mode === 'walk' && envMap ? 0x87CEEB : 0x87CEEB);
+      scene.background = new THREE.Color(0x87CEEB);
+      if (scene.fog) { scene.fog.color.setHex(0xb8dbe8); scene.fog.near = 60; scene.fog.far = 200; }
       if (renderer) renderer.toneMappingExposure = 1.4;
       scene.traverse(o => {
-        if (o.isPointLight && o.userData.disposable) o.intensity = 0.9;
+        if (o.isPointLight && o.userData.disposable) {
+          o.intensity = 0.9;
+          o.distance = 12;
+          o.color.setHex(0xfff0d0);
+        }
       });
     }
   }
