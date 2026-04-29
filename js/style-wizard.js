@@ -105,7 +105,8 @@ export function mountStyleWizard({ state, save, toast }) {
     wrapper.appendChild(h);
     const opts = document.createElement('div');
     opts.className = 'wizard-options';
-    const current = state.project?.styleDNA?.[step.id]?.id;
+    const u = state.project?.units?.find(x => x.id === state.project.activeUnitId) || state.project?.units?.[0];
+    const current = u?.styleDNA?.[step.id]?.id;
 
     step.options.forEach(opt => {
       const btn = document.createElement('button');
@@ -128,8 +129,9 @@ export function mountStyleWizard({ state, save, toast }) {
         btn.appendChild(sw);
       }
       btn.onclick = () => {
-        state.project.styleDNA = state.project.styleDNA || {};
-        state.project.styleDNA[step.id] = { id: opt.id, name: opt.name, tags: opt.tags, palette: opt.palette };
+        const unit = state.project.units.find(x => x.id === state.project.activeUnitId) || state.project.units[0];
+        unit.styleDNA = unit.styleDNA || {};
+        unit.styleDNA[step.id] = { id: opt.id, name: opt.name, tags: opt.tags, palette: opt.palette };
         save?.();
         opts.querySelectorAll('.wizard-option').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');

@@ -19,8 +19,11 @@ function classify(room) {
 }
 
 function tagDisposable(obj) {
-  obj.traverse?.(c => { c.userData = { ...c.userData, disposable: true }; if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
-  obj.userData = { ...obj.userData, disposable: true };
+  obj.traverse?.(c => {
+    c.userData = { ...c.userData, disposable: true, kind: 'furniture' };
+    if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
+  });
+  obj.userData = { ...obj.userData, disposable: true, kind: 'furniture' };
   return obj;
 }
 

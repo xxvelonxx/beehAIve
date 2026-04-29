@@ -3,6 +3,8 @@
  * URL deep-linking ?isTour=1&room=2&mode=walk, walk-forward button.
  */
 
+import { activeUnit } from './app.js';
+
 export function mountTour({ state, scene, toast }) {
   const wrap = document.getElementById('tour-canvas-wrap');
   const empty = document.getElementById('tour-empty');
@@ -18,8 +20,18 @@ export function mountTour({ state, scene, toast }) {
   }
 
   function build() {
-    const p = state.project;
-    if (!p?.rooms?.length) {
+    // URL deep-link: switch active unit BEFORE reading rooms
+    const u0 = new URL(location.href);
+    if (u0.searchParams.get('isTour') === '1') {
+      const unitCode = u0.searchParams.get('unit');
+      if (unitCode && state.project?.units) {
+        const target = state.project.units.find(x => x.code === unitCode);
+        if (target) state.project.activeUnitId = target.id;
+      }
+    }
+
+    const u = activeUnit(state.project);
+    if (!u?.rooms?.length) {
       empty.hidden = false;
       wrap.hidden = true;
       return;
@@ -28,36 +40,37 @@ export function mountTour({ state, scene, toast }) {
     wrap.hidden = false;
     clearOverlays();
 
-    scene.build(p.rooms, p.styleDNA || {});
-    activeRoomCode = p.rooms[0].code;
+    scene.build(u.rooms, u.styleDNA || {});
+    activeRoomCode = u.rooms[0].code;
     buildModeBar();
     buildMinimap();
     buildInfoBar();
     buildWalkBtn();
 
-    // URL deep-link
-    const u = new URL(location.href);
-    if (u.searchParams.get('isTour') === '1') {
-      const r = u.searchParams.get('room');
-      const m = u.searchParams.get('mode');
-      if (r && p.rooms[parseInt(r, 10)]) flyTo(p.rooms[parseInt(r, 10)].code);
+    // URL deep-link extras (room, mode, night, furniture)
+    if (u0.searchParams.get('isTour') === '1') {
+      const r = u0.searchParams.get('room');
+      const m = u0.searchParams.get('mode');
+      const night = u0.searchParams.get('night') === '1';
+      const noFurn = u0.searchParams.get('furniture') === '0';
+      if (r && u.rooms[parseInt(r, 10)]) flyTo(u.rooms[parseInt(r, 10)].code);
       if (m === 'walk') scene.setMode('walk');
+      if (night) scene.setDayNight(true);
+      if (noFurn) scene.setFurnitureVisible(false);
     }
 
     scene.onUpdate(({ position }) => {
-      // Update minimap dot
       drawMinimap(position);
     });
 
-    // Keyboard nav
     document.addEventListener('keydown', onKey);
   }
 
   function onKey(e) {
-    const p = state.project;
-    if (!p?.rooms?.length) return;
-    const idx = p.rooms.findIndex(r => r.code === activeRoomCode);
-    if (e.key === 'ArrowRight') flyTo(p.rooms[(idx + 1) % p.rooms.length].code);
+    const u = activeUnit(state.project);
+    if (!u?.rooms?.length) return;
+    const idx = u.rooms.findIndex(r => r.code === activeRoomCode);
+    if (e.key === 'ArrowRight') flyTo(u.rooms[(idx + 1) % u.rooms.length].code);
     if (e.key === 'ArrowLeft')  flyTo(p.rooms[(idx - 1 + p.rooms.length) % p.rooms.length].code);
   }
 
@@ -71,15 +84,49 @@ export function mountTour({ state, scene, toast }) {
     modes.forEach(m => {
       const b = document.createElement('button');
       b.textContent = m.label;
+      b.dataset.modeId = m.id;
       if (m.id === scene.mode) b.classList.add('active');
       b.onclick = () => {
-        modeBar.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+        modeBar.querySelectorAll('button[data-mode-id]').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
         scene.setMode(m.id);
         if (walkBtn) walkBtn.classList.toggle('visible', m.id === 'walk');
       };
       modeBar.appendChild(b);
     });
+
+    // Separator
+    const sep = document.createElement('span');
+    sep.style.cssText = 'width:1px;background:rgba(255,255,255,0.1);margin:4px 6px';
+    modeBar.appendChild(sep);
+
+    // Day/night toggle
+    const dayNightBtn = document.createElement('button');
+    dayNightBtn.textContent = '☀️ Día';
+    dayNightBtn.title = 'Alternar día / noche';
+    dayNightBtn.dataset.toggle = 'daynight';
+    dayNightBtn.onclick = () => {
+      const goingNight = !scene.isNight;
+      scene.setDayNight(goingNight);
+      dayNightBtn.textContent = goingNight ? '🌙 Noche' : '☀️ Día';
+      dayNightBtn.classList.toggle('active', goingNight);
+    };
+    modeBar.appendChild(dayNightBtn);
+
+    // Furniture toggle
+    const furnBtn = document.createElement('button');
+    furnBtn.textContent = '🪑 Muebles';
+    furnBtn.title = 'Mostrar / ocultar muebles';
+    furnBtn.dataset.toggle = 'furniture';
+    furnBtn.classList.add('active'); // default visible
+    furnBtn.onclick = () => {
+      const next = !scene.furnitureVisible;
+      scene.setFurnitureVisible(next);
+      furnBtn.classList.toggle('active', next);
+      furnBtn.textContent = next ? '🪑 Muebles' : '🏗 Estructura';
+    };
+    modeBar.appendChild(furnBtn);
+
     wrap.appendChild(modeBar);
   }
 
@@ -100,7 +147,8 @@ export function mountTour({ state, scene, toast }) {
       const rect = cv.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
-      const room = (state.project.rooms || []).find(r =>
+      const u = activeUnit(state.project);
+      const room = (u?.rooms || []).find(r =>
         x >= r.bbox.x && x <= r.bbox.x + r.bbox.width &&
         y >= r.bbox.y && y <= r.bbox.y + r.bbox.height
       );
@@ -117,7 +165,7 @@ export function mountTour({ state, scene, toast }) {
     const W = cv.width, H = cv.height;
     ctx.fillStyle = '#0a0e1a';
     ctx.fillRect(0, 0, W, H);
-    const rooms = state.project?.rooms || [];
+    const rooms = activeUnit(state.project)?.rooms || [];
     rooms.forEach(r => {
       const x = (r.bbox.x / 100) * W;
       const y = (r.bbox.y / 100) * H;
@@ -156,7 +204,9 @@ export function mountTour({ state, scene, toast }) {
 
   function updateInfo() {
     if (!infoBar) return;
-    const r = state.project.rooms.find(x => x.code === activeRoomCode) || state.project.rooms[0];
+    const u = activeUnit(state.project);
+    if (!u) return;
+    const r = u.rooms.find(x => x.code === activeRoomCode) || u.rooms[0];
     if (!r) return;
     infoBar.innerHTML = '';
     const name = document.createElement('div');
@@ -196,7 +246,7 @@ export function mountTour({ state, scene, toast }) {
 
   function onTabChange(tab) {
     scene.onTabChange?.(tab);
-    if (tab === 'tour' && state.project?.rooms?.length && !document.querySelector('#tour-canvas-wrap canvas')) {
+    if (tab === 'tour' && activeUnit(state.project)?.rooms?.length && !document.querySelector('#tour-canvas-wrap canvas')) {
       build();
     }
   }

@@ -3,11 +3,13 @@
  * NOT localStorage (R9 — base64 blobs blow past the 5-10MB cap).
  */
 
+import { activeUnit } from './app.js';
+
 const idb = window.idbKeyval; // UMD global
 
-const MAX_IMAGES_PER_PROJECT = 50;
+const MAX_IMAGES_PER_UNIT = 50;
 
-function imgKey(projectId, key) { return `cayenabot_img_${projectId}_${key}`; }
+function imgKey(projectId, unitId, key) { return `cayenabot_img_${projectId}_${unitId}_${key}`; }
 
 export function mountGallery({ state, save, toast }) {
   const grid = document.getElementById('gallery-grid');
@@ -16,15 +18,16 @@ export function mountGallery({ state, save, toast }) {
 
   async function refresh() {
     const p = state.project;
+    const u = activeUnit(p);
     grid.innerHTML = '';
-    if (!p?.galleryMeta?.length) {
+    if (!u?.galleryMeta?.length) {
       empty.hidden = false;
       return;
     }
     empty.hidden = true;
 
-    for (const meta of p.galleryMeta) {
-      const url = await idb.get(imgKey(p.id, meta.key));
+    for (const meta of u.galleryMeta) {
+      const url = await idb.get(imgKey(p.id, u.id, meta.key));
       if (!url) continue;
       const card = document.createElement('div');
       card.className = 'gallery-item';
@@ -62,19 +65,18 @@ export function mountGallery({ state, save, toast }) {
 
   async function addImage(dataUrl, meta = {}) {
     const p = state.project;
-    if (!p) return;
-    p.galleryMeta = p.galleryMeta || [];
-    // Cap and evict oldest
-    if (p.galleryMeta.length >= MAX_IMAGES_PER_PROJECT) {
-      const old = p.galleryMeta.shift();
-      try { await idb.del(imgKey(p.id, old.key)); } catch {}
-      toast?.(`Galería llena (${MAX_IMAGES_PER_PROJECT}). Imagen más antigua eliminada.`, 'info');
+    const u = activeUnit(p);
+    if (!p || !u) return;
+    u.galleryMeta = u.galleryMeta || [];
+    if (u.galleryMeta.length >= MAX_IMAGES_PER_UNIT) {
+      const old = u.galleryMeta.shift();
+      try { await idb.del(imgKey(p.id, u.id, old.key)); } catch {}
+      toast?.(`Galería llena (${MAX_IMAGES_PER_UNIT}). Imagen más antigua eliminada.`, 'info');
     }
     const key = 'k_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
-    await idb.set(imgKey(p.id, key), dataUrl);
-    const m = { key, caption: meta.caption || '', source: meta.source || '', ts: Date.now() };
-    p.galleryMeta.push(m);
-    // Save first thumbnail as project thumb
+    await idb.set(imgKey(p.id, u.id, key), dataUrl);
+    const m = { key, caption: meta.caption || '', source: meta.source || '', ts: Date.now(), unitId: u.id };
+    u.galleryMeta.push(m);
     if (!p.thumbDataUrl) {
       p.thumbDataUrl = await downscale(dataUrl, 400);
     }
@@ -102,11 +104,13 @@ export function mountGallery({ state, save, toast }) {
 
   async function getAllImages() {
     const p = state.project;
-    if (!p?.galleryMeta) return [];
+    if (!p?.units) return [];
     const out = [];
-    for (const m of p.galleryMeta) {
-      const url = await idb.get(imgKey(p.id, m.key));
-      if (url) out.push({ ...m, dataUrl: url });
+    for (const u of p.units) {
+      for (const m of (u.galleryMeta || [])) {
+        const url = await idb.get(imgKey(p.id, u.id, m.key));
+        if (url) out.push({ ...m, dataUrl: url, unitCode: u.code, unitName: u.name });
+      }
     }
     return out;
   }

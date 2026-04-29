@@ -91,6 +91,9 @@ export function mountSceneBuilder({ state, toast }) {
   let container = null;
   let roomCenters = []; // { code, name, position, lookAt }
   let onUpdateCb = null;
+  let lights = null;     // { ambient, sun, fill, hemi, rim }
+  let isNight = false;
+  let furnitureVisible = true;
 
   function ensureContainer() {
     container = document.getElementById('tour-canvas-wrap');
@@ -119,7 +122,7 @@ export function mountSceneBuilder({ state, toast }) {
     scene.background = new THREE.Color(0x87CEEB); // sky blue background
     scene.fog = new THREE.Fog(0xb8dbe8, 60, 200);
 
-    addLights(scene);
+    lights = addLights(scene);
 
     camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
     camera.position.set(15, 18, 15);
@@ -271,6 +274,56 @@ export function mountSceneBuilder({ state, toast }) {
     step();
   }
 
+  /* =============== day / night toggle =============== */
+  function setDayNight(night) {
+    if (!lights) return;
+    isNight = !!night;
+    if (isNight) {
+      lights.ambient.intensity = 0.18;
+      lights.sun.color.setHex(0x4a6688);
+      lights.sun.intensity = 0.4;
+      lights.sun.position.set(8, 6, -10);
+      lights.fill.color.setHex(0x6080b0);
+      lights.fill.intensity = 0.3;
+      lights.hemi.color.setHex(0x223349);
+      lights.hemi.groundColor.setHex(0x141420);
+      lights.hemi.intensity = 0.3;
+      lights.rim.color.setHex(0xffd089);
+      lights.rim.intensity = 0.5;
+      scene.background = new THREE.Color(0x0d1a2c);
+      if (renderer) renderer.toneMappingExposure = 0.95;
+      // Boost per-room point lights for night warmth
+      scene.traverse(o => {
+        if (o.isPointLight && o.userData.disposable) o.intensity = 2.2;
+      });
+    } else {
+      lights.ambient.intensity = 0.4;
+      lights.sun.color.setHex(0xffecd0);
+      lights.sun.intensity = 2.5;
+      lights.sun.position.set(12, 18, 10);
+      lights.fill.color.setHex(0xc8d8ff);
+      lights.fill.intensity = 0.6;
+      lights.hemi.color.setHex(0x87CEEB);
+      lights.hemi.groundColor.setHex(0x4a3a2a);
+      lights.hemi.intensity = 0.5;
+      lights.rim.color.setHex(0xffd0a0);
+      lights.rim.intensity = 0.8;
+      scene.background = new THREE.Color(mode === 'walk' && envMap ? 0x87CEEB : 0x87CEEB);
+      if (renderer) renderer.toneMappingExposure = 1.4;
+      scene.traverse(o => {
+        if (o.isPointLight && o.userData.disposable) o.intensity = 0.9;
+      });
+    }
+  }
+
+  /* =============== furniture visibility toggle =============== */
+  function setFurnitureVisible(visible) {
+    furnitureVisible = !!visible;
+    scene.traverse(o => {
+      if (o.userData?.kind === 'furniture') o.visible = furnitureVisible;
+    });
+  }
+
   /* =============== capture =============== */
   function capture() {
     if (!renderer) return null;
@@ -294,10 +347,13 @@ export function mountSceneBuilder({ state, toast }) {
 
   return {
     init, build, setMode, flyTo, capture, dispose,
+    setDayNight, setFurnitureVisible,
     onTabChange,
     get rooms() { return roomCenters; },
     get camera() { return camera; },
     get mode() { return mode; },
+    get isNight() { return isNight; },
+    get furnitureVisible() { return furnitureVisible; },
     onUpdate(cb) { onUpdateCb = cb; },
   };
 }

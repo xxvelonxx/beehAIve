@@ -153,7 +153,8 @@ export function mountRender({ state, gallery, toast }) {
   const captureBtn = document.getElementById('capture-3d-btn');
 
   async function queueRender(rawPrompt, source = 'chat') {
-    const dna = state.project?.styleDNA || {};
+    const u = state.project?.units?.find(x => x.id === state.project.activeUnitId) || state.project?.units?.[0];
+    const dna = u?.styleDNA || {};
     const prompt = applyStyleDNA(rawPrompt, dna);
     toast?.('Generando render con fal.ai FLUX Pro...', 'info');
     let dataUrl, label = 'fal.ai FLUX Pro';
