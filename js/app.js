@@ -205,6 +205,11 @@ function renderWorkspace() {
   state.modules.chat = mountChat({ state, save: () => saveProject(p), toast });
   state.modules.exporter = mountExport({ state, toast });
 
+  // Expose for headless testing only on localhost
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    window.__cayena = { state, modules: state.modules, save: () => saveProject(state.project) };
+  }
+
   // Top bar buttons
   document.getElementById('save-project-btn').onclick = () => { saveProject(p); toast('Proyecto guardado', 'success'); };
   document.getElementById('back-to-projects').onclick = () => { saveProject(p); goProjects(); };

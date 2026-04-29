@@ -435,6 +435,7 @@ input, textarea { font: inherit; }
   display: flex; align-items: center; justify-content: center;
   z-index: 1000; padding: 20px;
 }
+.modal[hidden] { display: none; }
 .modal-box {
   background: var(--bg-2);
   border: 1px solid var(--border);

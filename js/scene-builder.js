@@ -114,9 +114,9 @@ export function mountSceneBuilder({ state, toast }) {
     container.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
-    envMap = buildSkyEnvironment(renderer, 'walk');
+    envMap = buildSkyEnvironment(renderer, 'walk'); // start bright
     scene.environment = envMap;
-    scene.background = envMap;
+    scene.background = new THREE.Color(0x87CEEB); // sky blue background
     scene.fog = new THREE.Fog(0xb8dbe8, 60, 200);
 
     addLights(scene);
@@ -211,12 +211,9 @@ export function mountSceneBuilder({ state, toast }) {
       orbit.target.set(0, 1, 0);
       orbit.update();
     }
-    // Swap env on mode change for vibe
-    const newEnv = buildSkyEnvironment(renderer, next);
-    scene.environment = newEnv;
-    if (next === 'walk') scene.background = newEnv;
-    if (envMap) envMap.dispose();
-    envMap = newEnv;
+    // Keep bright env in both modes for visibility; only adjust background
+    if (next === 'walk' && envMap) scene.background = envMap;
+    else scene.background = new THREE.Color(0x87CEEB);
   }
 
   /* =============== build =============== */
