@@ -18,11 +18,25 @@ function downloadFile(filename, content, mime = 'application/octet-stream') {
 async function fullProjectWithImages(state) {
   const p = JSON.parse(JSON.stringify(state.project));
   p.images = {};
-  for (const m of (p.galleryMeta || [])) {
-    const url = await idb.get(`cayenabot_img_${state.project.id}_${m.key}`);
-    if (url) p.images[m.key] = url;
+  // Flatten images across all units; key includes unitId to avoid collisions
+  for (const u of (p.units || [])) {
+    for (const m of (u.galleryMeta || [])) {
+      const url = await idb.get(`cayenabot_img_${state.project.id}_${u.id}_${m.key}`);
+      if (url) p.images[`${u.id}_${m.key}`] = url;
+    }
   }
   return p;
+}
+
+function flatGallery(p) {
+  const out = [];
+  for (const u of (p.units || [])) {
+    for (const m of (u.galleryMeta || [])) {
+      const url = p.images[`${u.id}_${m.key}`];
+      if (url) out.push({ ...m, url, unitCode: u.code, unitName: u.name });
+    }
+  }
+  return out;
 }
 
 /* ============ JSON export ============ */
@@ -37,7 +51,7 @@ async function exportJSON(state, toast) {
 /* ============ HTML gallery export ============ */
 async function exportHtmlGallery(state, toast) {
   const p = await fullProjectWithImages(state);
-  const items = (p.galleryMeta || []).map(m => ({ ...m, url: p.images[m.key] })).filter(x => x.url);
+  const items = flatGallery(p);
   const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(p.name)} — CayenaBot</title>
@@ -72,8 +86,9 @@ async function exportPDF(state, toast) {
   // we instead emit a PRINTABLE HTML file that the user can save as PDF
   // via browser. This is more reliable than embedding a PDF library.
   const p = await fullProjectWithImages(state);
-  const items = (p.galleryMeta || []).map(m => ({ ...m, url: p.images[m.key] })).filter(x => x.url);
-  const dna = p.styleDNA || {};
+  const items = flatGallery(p);
+  const allRooms = (p.units || []).flatMap(u => (u.rooms || []).map(r => ({ ...r, unitCode: u.code, unitName: u.name })));
+  const dna = (p.units?.[0]?.styleDNA) || {};
   const dnaList = Object.values(dna).map(d => d?.name).filter(Boolean).join(' · ');
 
   const html = `<!DOCTYPE html>
@@ -109,12 +124,12 @@ ${items.length ? `<section class="page">
   <div class="footer"><span>CayenaBot · República Dominicana</span><span>${new Date().toLocaleDateString('es-DO')}</span></div>
 </section>` : ''}
 
-${(p.rooms || []).length ? `<section class="page">
+${allRooms.length ? `<section class="page">
   <h2>Especificaciones</h2>
   <table class="rooms-table">
-    <thead><tr><th>Código</th><th>Habitación</th><th>Dimensiones</th><th>Piso</th></tr></thead>
+    <thead><tr><th>Unidad</th><th>Código</th><th>Habitación</th><th>Dimensiones</th><th>Piso</th></tr></thead>
     <tbody>
-      ${p.rooms.map(r => `<tr><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.estimated_dimensions)}</td><td>${escapeHtml(r.floor_material)}</td></tr>`).join('')}
+      ${allRooms.map(r => `<tr><td>${escapeHtml(r.unitCode)} · ${escapeHtml(r.unitName)}</td><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.estimated_dimensions)}</td><td>${escapeHtml(r.floor_material)}</td></tr>`).join('')}
     </tbody>
   </table>
   <div class="footer"><span>CayenaBot · ${escapeHtml(p.name)}</span><span>${new Date().toLocaleDateString('es-DO')}</span></div>
@@ -132,62 +147,8 @@ window.addEventListener('load', () => setTimeout(() => window.print(), 400));
   toast?.('Usa el diálogo de impresión → Guardar como PDF', 'info');
 }
 
-/* ============ Standalone platform export ============ */
-async function exportStandalone(state, toast) {
-  // Bundles project + images into a single HTML file with a minimal viewer
-  const p = await fullProjectWithImages(state);
-  const items = (p.galleryMeta || []).map(m => ({ ...m, url: p.images[m.key] })).filter(x => x.url);
-  const html = `<!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><title>${escapeHtml(p.name)}</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:-apple-system,sans-serif;background:#0b0d14;color:#fff}
-header{padding:24px;border-bottom:1px solid rgba(255,255,255,0.1);text-align:center}
-header h1{margin:0;font-weight:300;font-size:32px}
-header p{margin:6px 0 0;color:rgba(255,255,255,0.5)}
-nav{display:flex;justify-content:center;gap:8px;padding:12px;background:#11141d}
-nav button{padding:8px 16px;background:none;color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer}
-nav button.active{background:#c4773b;border-color:#c4773b}
-.tab{display:none;padding:24px}.tab.active{display:block}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-.grid img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;cursor:pointer}
-.rooms{display:grid;gap:8px;max-width:800px;margin:0 auto}
-.room{padding:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px}
-.room strong{color:#c4773b}
-</style></head><body>
-<header>
-  <h1>${escapeHtml(p.name)}</h1>
-  <p>Generado con CayenaBot · ${new Date(p.updatedAt || Date.now()).toLocaleDateString('es-DO')}</p>
-</header>
-<nav>
-  <button class="active" onclick="showTab(this,'gal')">Galería</button>
-  <button onclick="showTab(this,'rooms')">Habitaciones</button>
-</nav>
-<div id="gal" class="tab active">
-  <div class="grid">
-    ${items.map(it => `<img src="${it.url}" alt="${escapeHtml(it.caption || '')}" onclick="lightbox(this.src)">`).join('')}
-  </div>
-</div>
-<div id="rooms" class="tab">
-  <div class="rooms">
-    ${(p.rooms || []).map(r => `<div class="room"><strong>${escapeHtml(r.code)} · ${escapeHtml(r.name)}</strong><br>${escapeHtml(r.estimated_dimensions)} · ${escapeHtml(r.floor_material)}</div>`).join('')}
-  </div>
-</div>
-<script>
-function showTab(btn,id){
-  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.id===id));
-}
-function lightbox(src){
-  const lb=document.createElement('div');
-  lb.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:999;cursor:pointer';
-  const img=document.createElement('img');img.src=src;img.style.cssText='max-width:95vw;max-height:95vh;border-radius:8px';
-  lb.appendChild(img);lb.onclick=()=>lb.remove();document.body.appendChild(lb);
-}
-</script></body></html>`;
-  downloadFile(`cayenabot_standalone_${Date.now()}.html`, html, 'text/html');
-  toast?.('Plataforma standalone exportada', 'success');
-}
+/* The legacy "standalone HTML" export is replaced by Publish Showroom (ZIP)
+ * in showroom-publish.js — wired from the Publicar tab via mountExport. */
 
 function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -195,9 +156,24 @@ function escapeHtml(s) {
 
 /* ============ public mount ============ */
 export function mountExport({ state, toast }) {
-  document.getElementById('export-json-btn').onclick = () => exportJSON(state, toast);
-  document.getElementById('export-pdf-btn').onclick = () => exportPDF(state, toast);
-  document.getElementById('export-html-btn').onclick = () => exportHtmlGallery(state, toast);
-  document.getElementById('export-platform-btn').onclick = () => exportStandalone(state, toast);
+  const $ = (id) => document.getElementById(id);
+  $('export-json-btn') && ($('export-json-btn').onclick = () => exportJSON(state, toast));
+  $('export-pdf-btn')  && ($('export-pdf-btn').onclick  = () => exportPDF(state, toast));
+  $('export-html-btn') && ($('export-html-btn').onclick = () => exportHtmlGallery(state, toast));
+  // Publish ZIP button (delegated to the publish module)
+  const pubBtn = $('publish-zip-btn');
+  if (pubBtn) {
+    pubBtn.onclick = async () => {
+      pubBtn.disabled = true;
+      const orig = pubBtn.textContent;
+      pubBtn.textContent = 'Empaquetando...';
+      try {
+        await state.modules?.publish?.publishZip();
+      } finally {
+        pubBtn.disabled = false;
+        pubBtn.textContent = orig;
+      }
+    };
+  }
   return {};
 }

@@ -19,6 +19,7 @@
 
 <script src="./vendor/dompurify.min.js"></script>
 <script src="./vendor/idb-keyval.umd.js"></script>
+<script src="./vendor/jszip.min.js"></script>
 </head>
 <body>
 
@@ -153,10 +154,16 @@
     </div>
 
     <div class="tab-panel" data-panel="export" id="panel-export">
-      <h3>Exportar</h3>
+      <div class="publish-hero">
+        <h2>Publicar showroom</h2>
+        <p class="muted">Genera un ZIP autocontenido con tour 3D, todas las unidades y branding. Súbelo a Netlify Drop, GitHub Pages, o entrégalo al cliente para que lo hostee donde quiera.</p>
+        <button id="publish-zip-btn" class="primary-btn big">📦 Generar showroom ZIP</button>
+        <div id="publish-status" class="status-line"></div>
+      </div>
+      <h3 style="margin-top:36px">Otros exports</h3>
       <div class="export-grid">
         <button id="export-json-btn" class="export-card">
-          <span class="export-icon">📦</span>
+          <span class="export-icon">💾</span>
           <strong>Proyecto JSON</strong>
           <em>Backup completo (rooms, chat, imágenes)</em>
         </button>
@@ -169,11 +176,6 @@
           <span class="export-icon">🖼</span>
           <strong>Galería HTML</strong>
           <em>Página standalone con todas las imágenes</em>
-        </button>
-        <button id="export-platform-btn" class="export-card">
-          <span class="export-icon">🌐</span>
-          <strong>Plataforma standalone</strong>
-          <em>HTML único con tour 3D embebido</em>
         </button>
       </div>
     </div>
