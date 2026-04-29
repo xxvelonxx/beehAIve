@@ -127,6 +127,27 @@ export function mountTour({ state, scene, toast }) {
     };
     modeBar.appendChild(furnBtn);
 
+    // Realismo Pro: capture current view -> fal.ai FLUX Kontext img2img
+    const sep2 = document.createElement('span');
+    sep2.style.cssText = 'width:1px;background:rgba(255,255,255,0.1);margin:4px 6px';
+    modeBar.appendChild(sep2);
+    const realBtn = document.createElement('button');
+    realBtn.textContent = '✨ Realismo Pro';
+    realBtn.title = 'Captura la vista actual y la convierte en render fotorrealista vía fal.ai FLUX Kontext (img2img preserva layout)';
+    realBtn.dataset.action = 'realism';
+    realBtn.onclick = async () => {
+      realBtn.disabled = true;
+      const orig = realBtn.textContent;
+      realBtn.textContent = '⏳ Generando...';
+      try {
+        await state.modules?.render?.realism?.();
+      } finally {
+        realBtn.disabled = false;
+        realBtn.textContent = orig;
+      }
+    };
+    modeBar.appendChild(realBtn);
+
     wrap.appendChild(modeBar);
   }
 
@@ -251,5 +272,8 @@ export function mountTour({ state, scene, toast }) {
     }
   }
 
-  return { build, flyTo, onTabChange };
+  return {
+    build, flyTo, onTabChange,
+    get activeRoomCode() { return activeRoomCode; },
+  };
 }

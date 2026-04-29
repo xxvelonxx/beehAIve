@@ -167,6 +167,23 @@ const unitFile = document.documentElement.dataset.unit;
     b.textContent = next ? '🪑 Muebles' : '🏗 Estructura';
   }, true);
   bar.appendChild(fn);
+
+  // Capture button — works offline, just downloads the current 3D view as JPG.
+  // Realismo Pro is editor-only (requires fal.ai key) — viewers download the
+  // raw capture and the developer can post-process if they want.
+  const cap = document.createElement('button');
+  cap.textContent = '📸 Capturar';
+  cap.title = 'Descarga la vista actual como JPG';
+  cap.addEventListener('click', () => {
+    const url = scene.capture();
+    if (!url) return;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'cayenabot_' + (data.code || 'unit') + '_' + Date.now() + '.jpg';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  bar.appendChild(cap);
+
   wrap.appendChild(bar);
 
   // Minimap

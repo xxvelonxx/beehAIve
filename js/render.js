@@ -147,6 +147,81 @@ function applyStyleDNA(prompt, dna = {}) {
   return parts.filter(Boolean).join(', ');
 }
 
+/* ============ Build prompt that describes current 3D view ============ */
+function buildRealismPrompt(unit, roomCode, dna) {
+  const room = unit?.rooms?.find(r => r.code === roomCode) || unit?.rooms?.[0];
+  const parts = [];
+  if (room) {
+    const name = (room.name || 'living room').toLowerCase();
+    parts.push(`luxurious ${name} interior`);
+    if (room.estimated_dimensions) parts.push(`${room.estimated_dimensions} space`);
+    if (room.floor_material) parts.push(`${room.floor_material} flooring`);
+    const wallsDesc = [room.wall_north, room.wall_south, room.wall_east, room.wall_west].join(' ').toLowerCase();
+    if (/ventanal|piso-techo|floor-to-ceiling/.test(wallsDesc)) {
+      parts.push('floor-to-ceiling glass windows');
+    }
+    if (/vista al mar|ocean|sea/.test(wallsDesc)) parts.push('ocean view');
+    if (/terraza|balcon|terrace|balcony/.test(wallsDesc)) parts.push('opens to terrace');
+  }
+  if (dna.architecture) parts.push(dna.architecture.tags);
+  if (dna.interior)     parts.push(dna.interior.tags);
+  if (dna.decoration)   parts.push(dna.decoration.tags);
+  if (dna.materials)    parts.push(dna.materials.tags);
+  if (dna.lighting)     parts.push(dna.lighting.tags);
+  parts.push('photorealistic architectural photography, ultra-detailed PBR materials, soft natural lighting, magazine quality, 8k, award-winning, Architectural Digest cover');
+  // Critical layout-fidelity directive for img2img
+  parts.push('preserve exact room layout, walls, window positions, doors, and furniture placement from the reference image');
+  return parts.filter(Boolean).join(', ');
+}
+
+/* ============ Realism upgrade: capture current 3D view -> img2img ============ */
+async function realismFromCurrentView(state, gallery, toast, opts = {}) {
+  const sceneMod = state.modules?.scene;
+  if (!sceneMod) throw new Error('Construye un tour 3D primero');
+  // Capture current camera frame
+  const refDataUrl = sceneMod.capture();
+  if (!refDataUrl) throw new Error('No se pudo capturar la vista');
+
+  const u = state.project?.units?.find(x => x.id === state.project.activeUnitId) || state.project?.units?.[0];
+  const dna = u?.styleDNA || {};
+  const roomCode = opts.roomCode || state.modules?.tour?.activeRoomCode || u?.rooms?.[0]?.code;
+  const prompt = buildRealismPrompt(u, roomCode, dna);
+
+  toast?.('Capturando vista 3D y enviándola a fal.ai FLUX Kontext...', 'info', 4000);
+
+  let dataUrl, label;
+  // Try Kontext (img2img — preserves layout) first.
+  if (getKey('fal')) {
+    try {
+      dataUrl = await renderFluxKontext(prompt, refDataUrl);
+      label = 'fal.ai FLUX Kontext (img2img desde 3D)';
+    } catch (e) {
+      console.warn('FLUX Kontext falló, intentando Pro text-only:', e);
+      try {
+        dataUrl = await renderFluxPro(prompt);
+        label = 'fal.ai FLUX Pro (sin layout fidelity)';
+      } catch (e2) {
+        console.warn('FLUX Pro falló, intentando Gemini draft:', e2);
+      }
+    }
+  }
+  if (!dataUrl) {
+    try {
+      dataUrl = await renderGeminiDraft(prompt);
+      label = 'Gemini draft (sin fal.ai key — calidad reducida)';
+      toast?.('Sin fal.ai key — usando Gemini draft. Configura fal.ai para calidad Architectural Digest.', 'info', 5000);
+    } catch (e3) {
+      throw new Error('Realismo falló: ' + e3.message);
+    }
+  }
+
+  await gallery.addImage(dataUrl, {
+    caption: `Realismo · ${u?.name || 'unidad'}${roomCode ? ' · ' + roomCode : ''}`,
+    source: label,
+  });
+  return { dataUrl, label, prompt };
+}
+
 /* ============ UI mount ============ */
 export function mountRender({ state, gallery, toast }) {
   const heroBtn = document.getElementById('render-hero-btn');
@@ -201,5 +276,19 @@ export function mountRender({ state, gallery, toast }) {
     toast?.('Captura agregada a galería', 'success');
   };
 
-  return { queueRender };
+  async function realism(opts = {}) {
+    try {
+      const out = await realismFromCurrentView(state, gallery, toast, opts);
+      toast?.(`✓ ${out.label}`, 'success', 4500);
+      return out;
+    } catch (e) {
+      // Surface error via toast; don't re-throw (button handler is async,
+      // a re-throw becomes an unhandled rejection in the page).
+      console.warn('[realism]', e);
+      toast?.(e.message || 'Realismo falló', 'error', 4500);
+      return null;
+    }
+  }
+
+  return { queueRender, realism };
 }
