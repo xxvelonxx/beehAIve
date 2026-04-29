@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: cayenabot
+    env: static
+    buildCommand: echo "No build needed"
+    staticPublishPath: .
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: "public, max-age=300"
+      - path: /js/*
+        name: Cache-Control
+        value: "public, max-age=86400"
+      - path: /css/*
+        name: Cache-Control
+        value: "public, max-age=86400"
