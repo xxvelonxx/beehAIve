@@ -1,0 +1,10 @@
+{
+  "name": "cayenabot",
+  "version": "4.0.0",
+  "private": true,
+  "description": "AI PropTech para República Dominicana — tours 3D Three.js + renders fal.ai FLUX",
+  "scripts": {
+    "start": "npx serve . -l 3000",
+    "dev": "npx serve . -l 3000"
+  }
+}
