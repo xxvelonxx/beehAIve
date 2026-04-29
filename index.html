@@ -101,13 +101,14 @@
       <input type="text" id="project-name" class="project-name-input" placeholder="Nombre del proyecto" />
     </div>
     <nav class="tabs" role="tablist">
-      <button class="tab active" data-tab="plan">Plano</button>
+      <button class="tab active" data-tab="units">Unidades</button>
       <button class="tab" data-tab="tour">Tour 3D</button>
       <button class="tab" data-tab="gallery">Galería</button>
       <button class="tab" data-tab="chat">Chat</button>
-      <button class="tab" data-tab="export">Exportar</button>
+      <button class="tab" data-tab="export">Publicar</button>
     </nav>
     <div class="topbar-actions">
+      <button id="branding-btn" class="icon-btn" title="Branding del cliente">🎨</button>
       <button id="style-wizard-btn" class="icon-btn" title="Style DNA">✨</button>
       <button id="save-project-btn" class="icon-btn" title="Guardar">💾</button>
       <span id="autosave-indicator" class="autosave"></span>
@@ -115,28 +116,8 @@
   </header>
 
   <main class="workspace">
-    <div class="tab-panel active" data-panel="plan" id="panel-plan">
-      <div class="plan-upload-area">
-        <h3>Sube el plano arquitectónico</h3>
-        <p class="muted">PNG, JPG o PDF. La AI extrae habitaciones, dimensiones y aperturas.</p>
-        <label class="upload-zone" id="plan-dropzone">
-          <input type="file" id="plan-file-input" accept="image/*,.pdf" hidden />
-          <span class="upload-icon">⬆</span>
-          <span>Click o arrastra el archivo aquí</span>
-        </label>
-        <div id="plan-preview-wrap" hidden>
-          <img id="plan-preview" alt="Plano" />
-          <div class="plan-toolbar">
-            <button id="analyze-plan-btn" class="primary-btn">Analizar plano con AI</button>
-            <button id="clear-plan-btn" class="secondary-btn">Quitar</button>
-          </div>
-        </div>
-        <div id="plan-status" class="status-line"></div>
-        <div id="rooms-list" class="rooms-list"></div>
-        <div class="build-actions" id="build-actions" hidden>
-          <button id="build-3d-btn" class="primary-btn big">Construir 3D →</button>
-        </div>
-      </div>
+    <div class="tab-panel active" data-panel="units" id="panel-units">
+      <!-- units.js renders here -->
     </div>
 
     <div class="tab-panel" data-panel="tour" id="panel-tour">
@@ -207,6 +188,17 @@
       <button class="icon-btn" id="close-config">✕</button>
     </header>
     <div id="config-body" class="modal-body"></div>
+  </div>
+</div>
+
+<!-- ======================== BRANDING MODAL ======================== -->
+<div id="branding-modal" class="modal" hidden>
+  <div class="modal-box">
+    <header class="modal-header">
+      <h3>Branding del cliente</h3>
+      <button class="icon-btn" id="close-branding">✕</button>
+    </header>
+    <div id="branding-body" class="modal-body"></div>
   </div>
 </div>
 

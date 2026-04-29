@@ -13,6 +13,9 @@ import { mountGallery } from './gallery.js';
 import { mountRender } from './render.js';
 import { mountExport } from './export.js';
 import { mountStyleWizard } from './style-wizard.js';
+import { mountUnits } from './units.js';
+import { mountBranding } from './branding.js';
+import { mountShowroomPublish } from './showroom-publish.js';
 
 /* ====================================================== state */
 export const state = {
@@ -22,23 +25,69 @@ export const state = {
   modules: {},          // mounted module references
 };
 
-/** Empty project skeleton. */
+/** Empty project — Hauzd-style multi-unit showroom. */
 function blankProject(userId) {
   const id = 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+  const unitId = 'u_' + Math.random().toString(36).slice(2, 8);
   return {
     id,
     userId,
     name: 'Proyecto ' + new Date().toLocaleDateString('es-DO'),
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    planImage: null,           // dataURL
-    rooms: [],                 // [{ code, name, bbox, ... }]
-    chat: [],                  // [{ role, content, ts }]
-    galleryKeys: [],           // IDB keys (image binaries live in IndexedDB)
-    galleryMeta: [],           // [{ key, caption, source, ts }]
-    styleDNA: {},              // { architecture, interior, decoration, materials, palette, lighting }
-    thumbDataUrl: null,        // small thumbnail (data URL) for project card
+    branding: {
+      devName: '',
+      logoDataUrl: '',
+      primaryColor: '#c4773b',
+      contact: { email: '', whatsapp: '', web: '' },
+    },
+    units: [{
+      id: unitId,
+      code: 'A',
+      name: 'Tipo A',
+      planImage: null,
+      rooms: [],
+      galleryMeta: [],
+      styleDNA: {},
+    }],
+    activeUnitId: unitId,
+    chat: [],
+    thumbDataUrl: null,
+    published: { lastBundleAt: 0, bundleSize: 0 },
   };
+}
+
+/** Migrate v4.0 single-unit projects into v4.1 multi-unit. */
+export function migrateProject(p) {
+  if (!p || p.units) return p;
+  const unitId = 'u_' + Math.random().toString(36).slice(2, 8);
+  p.units = [{
+    id: unitId,
+    code: 'A',
+    name: 'Tipo A',
+    planImage: p.planImage || null,
+    rooms: p.rooms || [],
+    galleryMeta: p.galleryMeta || [],
+    styleDNA: p.styleDNA || {},
+  }];
+  p.activeUnitId = unitId;
+  p.branding = p.branding || {
+    devName: '', logoDataUrl: '', primaryColor: '#c4773b',
+    contact: { email: '', whatsapp: '', web: '' },
+  };
+  p.published = p.published || { lastBundleAt: 0, bundleSize: 0 };
+  delete p.planImage;
+  delete p.rooms;
+  delete p.galleryMeta;
+  delete p.galleryKeys;
+  delete p.styleDNA;
+  return p;
+}
+
+/** Get currently active unit. Always returns one (or null if no units). */
+export function activeUnit(p) {
+  if (!p || !p.units || !p.units.length) return null;
+  return p.units.find(u => u.id === p.activeUnitId) || p.units[0];
 }
 
 /* ====================================================== persistence */
@@ -105,8 +154,8 @@ export function goProjects() {
 }
 
 export function goWorkspace(project) {
-  state.project = project;
-  saveProject(project);
+  state.project = migrateProject(project);
+  saveProject(state.project);
   showScreen('workspace-screen');
   renderWorkspace();
 
@@ -197,23 +246,27 @@ function renderWorkspace() {
   });
 
   // Mount sub-modules (idempotent — they manage their own state)
-  state.modules.plan = mountPlanAnalyzer({ state, save: () => saveProject(p), toast });
   state.modules.scene = mountSceneBuilder({ state, toast });
   state.modules.tour = mountTour({ state, scene: state.modules.scene, toast });
   state.modules.gallery = mountGallery({ state, save: () => saveProject(p), toast });
   state.modules.render = mountRender({ state, gallery: state.modules.gallery, toast });
   state.modules.chat = mountChat({ state, save: () => saveProject(p), toast });
+  state.modules.plan = mountPlanAnalyzer({ state, save: () => saveProject(p), toast });
+  state.modules.units = mountUnits({ state, save: () => saveProject(p), toast });
+  state.modules.branding = mountBranding({ state, save: () => saveProject(p), toast });
+  state.modules.publish = mountShowroomPublish({ state, toast });
   state.modules.exporter = mountExport({ state, toast });
 
   // Expose for headless testing only on localhost
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-    window.__cayena = { state, modules: state.modules, save: () => saveProject(state.project) };
+    window.__cayena = { state, modules: state.modules, save: () => saveProject(state.project), activeUnit };
   }
 
   // Top bar buttons
   document.getElementById('save-project-btn').onclick = () => { saveProject(p); toast('Proyecto guardado', 'success'); };
   document.getElementById('back-to-projects').onclick = () => { saveProject(p); goProjects(); };
   document.getElementById('style-wizard-btn').onclick = () => state.modules.wizard?.open();
+  document.getElementById('branding-btn').onclick = () => state.modules.branding?.open();
 }
 
 /* ====================================================== toasts */

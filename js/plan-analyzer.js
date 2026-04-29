@@ -173,6 +173,9 @@ export async function analyzePlan(dataUrl) {
 /* ====================================================== UI mount */
 export function mountPlanAnalyzer({ state, save, toast }) {
   const dropzone = document.getElementById('plan-dropzone');
+  // Legacy single-plan tab removed in v4.1 — multi-unit lives in units.js.
+  // Bail out gracefully if the old DOM is gone.
+  if (!dropzone) return { refresh: () => {} };
   const input = document.getElementById('plan-file-input');
   const previewWrap = document.getElementById('plan-preview-wrap');
   const preview = document.getElementById('plan-preview');
